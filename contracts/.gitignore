@@ -1,4 +1,5 @@
 out/
 cache/
 lib/
+!lib/forge-std
 broadcast/*/dry-run/

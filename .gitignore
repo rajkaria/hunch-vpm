@@ -12,6 +12,7 @@ artifacts/
 contracts/out/
 contracts/cache/
 contracts/lib/
+!contracts/lib/forge-std
 subgraph/generated/
 subgraph/build/
 subgraph-erc8004-arc/generated/
@@ -32,19 +33,14 @@ coverage/
 .DS_Store
 *.log
 
-# Internal working docs — this repo is public. Strategy, planning and research notes
-# live outside the repo (see ~/Projects/hunch-vpm-internal). Nothing matched here is
-# ever meant to be committed.
+# Working notes. This repo is public; drafts, planning and scratch files stay local.
 internal/
 notes/
 private/
 scratch/
-docs/hackathon/
-docs/PLAN.md
-docs/SPEC.md
 *.internal.md
 *.private.md
 
-# Autonomous run state — internal, never ships
+# Local tooling state
 .ocean/
 .burn-rate/

@@ -10,10 +10,11 @@ import {
 } from 'wagmi';
 
 import { Amount, Badge, Button } from '@/components/ui/primitives';
-import { ARC_TESTNET_ADDRESSES, isDeployed, txExplorerUrl } from '@/lib/chain';
+import { isDeployed, txExplorerUrl } from '@/lib/chain';
 import type { MarketDetail } from '@/lib/data/types';
 import { erc20Abi, settlerAbi } from '@/lib/wallet/abi';
 import { FAUCET_URL } from '@/lib/wallet/chains';
+import { useNetwork } from '@/lib/wallet/network';
 import { useWallet } from '@/lib/wallet/useWallet';
 import type { Acceptance } from '@/lib/vpm';
 
@@ -50,8 +51,14 @@ export function EntryFlow({
   const wallet = useWallet();
   const { address } = useAccount();
 
+  // Addresses follow the network the viewer selected, not a build-time constant.
+  // On Arc that matters less for USDC — it is the native gas token at the same
+  // predeploy address on both chains — but reading it from the selection keeps
+  // one source of truth and makes a future divergence a config change.
+  const { addresses, facts } = useNetwork();
+
   const settler = market.settler as `0x${string}`;
-  const usdc = ARC_TESTNET_ADDRESSES.usdc as `0x${string}`;
+  const usdc = addresses.usdc as `0x${string}`;
   const live = isDeployed(market.settler);
 
   const allowance = useReadContract({
@@ -131,7 +138,7 @@ export function EntryFlow({
         market={market}
         entered={entered}
         acceptance={acceptance}
-        explorer={enter.data === undefined ? null : txExplorerUrl(enter.data)}
+        explorer={enter.data === undefined ? null : txExplorerUrl(enter.data, facts)}
       />
     );
   }

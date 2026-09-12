@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { WagmiProvider } from 'wagmi';
 
 import { walletConfig } from '@/lib/wallet/config';
+import { NetworkProvider } from '@/lib/wallet/network';
 
 /**
  * The wallet context, mounted once at the root.
@@ -34,7 +35,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <WagmiProvider config={walletConfig()}>
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        {/* Network selection sits inside wagmi so `useWallet` can compare the
+            viewer's choice against the wallet's actual chain. */}
+        <NetworkProvider>{children}</NetworkProvider>
+      </QueryClientProvider>
     </WagmiProvider>
   );
 }

@@ -1,6 +1,6 @@
 import { defineChain } from 'viem';
 
-import { ARC_MAINNET, ARC_TESTNET, type ChainFacts } from '@/lib/chain';
+import { ARC_MAINNET, ARC_TESTNET, type ChainFacts, type NetworkId } from '@/lib/chain';
 
 /*
  * Arc as viem chains.
@@ -55,17 +55,32 @@ export const arcMainnetChain = defineChain({
 });
 
 /**
- * The chain this deployment transacts on.
+ * Both chains, addressable by network id.
  *
- * One chain at a time, chosen at build time. A venue that silently follows
- * whatever chain the wallet happens to be on is a venue that will eventually
- * send an approval to the wrong USDC.
+ * The surface used to pick one at build time. It now carries both and the
+ * viewer chooses — but *chooses explicitly*, and the choice is stored. A venue
+ * that silently follows whatever chain the wallet happens to be on is a venue
+ * that will eventually send an approval to the wrong USDC, so `wrongChain`
+ * still means "your wallet disagrees with what you selected here".
  */
-export const ACTIVE_CHAIN =
-  process.env['NEXT_PUBLIC_ARC_NETWORK'] === 'mainnet' ? arcMainnetChain : arcTestnetChain;
+export const CHAINS: Record<NetworkId, typeof arcTestnetChain | typeof arcMainnetChain> = {
+  testnet: arcTestnetChain,
+  mainnet: arcMainnetChain,
+};
 
+/**
+ * Which network a fresh visitor lands on.
+ *
+ * Testnet unless the deployment says otherwise, so a misconfigured build cannot
+ * put someone on mainnet without anyone having decided to.
+ */
+export const DEFAULT_NETWORK: NetworkId =
+  process.env['NEXT_PUBLIC_ARC_NETWORK'] === 'mainnet' ? 'mainnet' : 'testnet';
+
+/** Kept for callers that only need the default; prefer `useNetwork()`. */
+export const ACTIVE_CHAIN = DEFAULT_NETWORK === 'mainnet' ? arcMainnetChain : arcTestnetChain;
 export const ACTIVE_CHAIN_FACTS: ChainFacts =
-  process.env['NEXT_PUBLIC_ARC_NETWORK'] === 'mainnet' ? ARC_MAINNET : ARC_TESTNET;
+  DEFAULT_NETWORK === 'mainnet' ? ARC_MAINNET : ARC_TESTNET;
 
 /**
  * Where an empty wallet is sent for testnet USDC.

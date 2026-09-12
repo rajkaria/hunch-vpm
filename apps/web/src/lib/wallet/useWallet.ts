@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 
-import { ACTIVE_CHAIN, ACTIVE_CHAIN_FACTS } from './chains';
+import { useNetwork } from './network';
 
 export interface WalletState {
   /** The connected address, or null. */
@@ -24,10 +24,12 @@ export interface WalletState {
   /** True when no connector can be used: no injected provider, no WalletConnect. */
   noWallet: boolean;
   disconnect: () => void;
-  /** Ask the wallet to switch to — or add — the active chain. */
+  /** Ask the wallet to switch to — or add — the selected chain. */
   switchToActive: () => void;
   error: string | null;
   chainName: string;
+  /** The chain id the surface is pointed at, which is the viewer's choice. */
+  chainId: number;
 }
 
 /**
@@ -65,9 +67,11 @@ export function useWallet(): WalletState {
     return () => window.removeEventListener('eip6963:announceProvider', look);
   }, []);
 
+  const { chain: selected, facts } = useNetwork();
+
   const switchToActive = useCallback(() => {
-    switchChain({ chainId: ACTIVE_CHAIN.id });
-  }, [switchChain]);
+    switchChain({ chainId: selected.id });
+  }, [switchChain, selected.id]);
 
   const list = useMemo(
     () =>
@@ -79,7 +83,7 @@ export function useWallet(): WalletState {
     [connectors, connect, injectedReady],
   );
 
-  const onActive = isConnected && chainId === ACTIVE_CHAIN.id;
+  const onActive = isConnected && chainId === selected.id;
 
   return {
     address: isConnected && address !== undefined ? address : null,
@@ -92,7 +96,8 @@ export function useWallet(): WalletState {
     disconnect: () => disconnect(),
     switchToActive,
     error: connectError?.message ?? switchError?.message ?? null,
-    chainName: ACTIVE_CHAIN_FACTS.name,
+    chainName: facts.name,
+    chainId: selected.id,
   };
 }
 

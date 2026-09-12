@@ -3,11 +3,14 @@ import { describe, expect, it } from 'vitest';
 import { hasWalletConnect, WALLETCONNECT_PROJECT_ID, walletConfig } from '../src/lib/wallet/config';
 
 describe('wallet config', () => {
-  it('ships no WalletConnect project id, because one is a credential', () => {
-    // If this ever fails, someone has committed a default. A project id belongs
-    // in the deployment's environment, never in the tree.
-    expect(WALLETCONNECT_PROJECT_ID).toBe('');
-    expect(hasWalletConnect).toBe(false);
+  it('ships the parent product’s project id, which is public by design', () => {
+    // Reversed deliberately. A WalletConnect project id is not a secret — it is
+    // served in playhunch.xyz's own browser bundle, which is where this one came
+    // from — so committing it publishes nothing that was private, and shipping
+    // one means mobile wallets work out of the box rather than injected-only.
+    // It stays overridable per deployment.
+    expect(WALLETCONNECT_PROJECT_ID).toMatch(/^[0-9a-f]{32}$/);
+    expect(hasWalletConnect).toBe(true);
   });
 
   it('still offers an injected connector with no project id set', () => {
@@ -20,7 +23,11 @@ describe('wallet config', () => {
     expect(walletConfig()).toBe(walletConfig());
   });
 
-  it('is configured for exactly the active chain', () => {
-    expect(walletConfig().chains.map((chain) => chain.id)).toEqual([5042002]);
+  it('carries BOTH Arcs, because the viewer chooses at runtime', () => {
+    expect(
+      walletConfig()
+        .chains.map((chain) => chain.id)
+        .sort((a, b) => a - b),
+    ).toEqual([5042, 5042002]);
   });
 });

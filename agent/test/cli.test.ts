@@ -165,4 +165,38 @@ describe("commands", () => {
     expect(out).not.toContain("ciphertext-do-not-print-me");
     expect(out).toContain("circle api key  set");
   });
+
+  // The Graph's gateway takes its API key as a path segment, so an endpoint variable is a
+  // secret that does not read like one. The banner goes to stdout on every command.
+  it("never prints the API key inside a keyed endpoint URL", async () => {
+    const key = "0123456789abcdef0123456789abcdef";
+    const { out } = await cli(["research"], {
+      HUNCH_SUBGRAPH_URL: `https://gateway.thegraph.com/api/${key}/subgraphs/id/QmVpmSubgraphId`,
+      HUNCH_INTEL_URL: `https://gateway.thegraph.com/api/${key}/intel`,
+    });
+    expect(out).not.toContain(key);
+    // Still useful: the operator can see which host and which shape of path is configured.
+    expect(out).toContain("subgraph        https://gateway.thegraph.com/api/***/subgraphs/id/***");
+    expect(out).toContain("intel           https://gateway.thegraph.com/api/***/intel");
+  });
+
+  it("keeps a key out of the banner however the URL is shaped", async () => {
+    const key = "0123456789abcdef0123456789abcdef";
+    for (const url of [
+      `https://gateway.thegraph.com/api/${key}/subgraphs/id/Qm1`,
+      `https://example.test/graphql?api_key=${key}`,
+      `https://alice:${key}@example.test/graphql`,
+      `https://example.test/${key}`,
+      `not-a-url-${key}`,
+    ]) {
+      const { out } = await cli(["research"], { HUNCH_SUBGRAPH_URL: url });
+      expect(out, url).not.toContain(key);
+    }
+  });
+
+  it("still says when no endpoint is configured, rather than printing a redacted nothing", async () => {
+    const { out } = await cli(["research"]);
+    expect(out).toContain("subgraph        none — dry-run fixtures");
+    expect(out).toContain("intel           none — dry-run quotes");
+  });
 });

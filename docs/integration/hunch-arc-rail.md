@@ -24,9 +24,32 @@ Everything below is the mechanics of that table.
 
 ## 1. Install
 
-```bash
-pnpm add @hunch-vpm/client
+**`@hunch-vpm/client` is not published to npm.** `pnpm add @hunch-vpm/client` fails with a 404
+from the registry, and that is the honest state: nothing in this repo has been published, and
+publishing is not done yet. Until it is, install it from a checkout.
+
+Inside this workspace, the dependency is already declared the way `agent`, `packages/mcp` and
+`apps/web` declare it:
+
+```jsonc
+// package.json
+"dependencies": { "@hunch-vpm/client": "workspace:*" }
 ```
+
+From a repository of your own, build the package once and add it by path:
+
+```bash
+git clone <repo> hunch-vpm
+cd hunch-vpm && corepack enable && pnpm install
+pnpm --filter @hunch-vpm/client build      # writes packages/client/dist, which is gitignored
+
+cd ../your-product
+pnpm add file:../hunch-vpm/packages/client
+```
+
+`import { createArcRail } from '@hunch-vpm/client'` then resolves. The build step is not
+optional: `package.json` ships only `dist` and `README.md`, there is no `prepare` script, and a
+`file:` install of an unbuilt package resolves to nothing.
 
 Peer requirements: Node 20+, ESM, `viem` 2.x (a direct dependency of the package, not a peer).
 The package is TypeScript-first and ships its own declarations. It has no runtime dependency on a
@@ -430,7 +453,7 @@ index head, so it understates the room rather than overstating it.
 | `UnknownSideError` | A side label the rail has no mapping for. Carries `.known`. | Fix `sides` in the rail config. |
 | `TradeRefusedError` | `trade` would produce calldata that cannot do what was asked. Carries `.quote`. | Return the refusal and the quote to the agent. Not a 500. |
 | `RangeError` | A non-positive stake, an amount past `uint128`, or an outcome the market does not have. | 400 the agent. |
-| `GraphQLHttpError` / `GraphQLRequestError` | The subgraph endpoint failed. `.url` carries the endpoint (which may contain your API key — do not log it). | Retry, then 502. |
+| `GraphQLHttpError` / `GraphQLRequestError` | The subgraph endpoint failed. `.url` carries the endpoint already redacted (`https://gateway.thegraph.com/api/***/subgraphs/id/***`), so it is safe to log — the gateway puts its API key in the URL path and the error never holds the unredacted form. | Retry, then 502. |
 
 All of the rail's own errors extend `RailError`, so one `catch` can separate "the venue said no"
 from "the venue is broken".

@@ -48,6 +48,21 @@ describe('marketBook', () => {
     expect(book.books[1]?.probabilityPercent).toBe('94.3925');
   });
 
+  /**
+   * Both ends of the arrival window, because a vested reader needs both: a stake is
+   * rationed against the room its opposing books have left, and how much of that room
+   * opens up before the freeze depends on how much of the window is already gone. The
+   * countdown below is the far end; this is the near one, and nothing else in the
+   * response implies it.
+   */
+  it('publishes the opening time, not only the freeze', async () => {
+    const { client } = testClient({ market: marketOpen });
+    const book = await client.marketBook(MARKET_A, { now: NOW });
+
+    expect(book.createdAt).toBe(BigInt(marketOpen.market.createdAt));
+    expect(book.createdAt).toBeLessThan(book.resolutionTime);
+  });
+
   it('counts down to the freeze', async () => {
     const { client } = testClient({ market: marketOpen });
     const book = await client.marketBook(MARKET_A, { now: NOW });

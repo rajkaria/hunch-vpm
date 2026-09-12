@@ -268,7 +268,7 @@ One `.spkg` therefore serves testnet, mainnet and a local fork without a rebuild
 ```bash
 make build                  # wasm module, release
 make test                   # 91 unit tests, host target
-make lint                   # rustfmt + clippy -D warnings, as CI runs them
+make lint                   # rustfmt + clippy -D warnings
 make check                  # lint, test, vendored-proto check, build
 make pack                   # hunch-vpm-v0.1.0.spkg
 make protogen               # regenerate src/pb after editing proto/hunch_vpm.proto
@@ -278,9 +278,22 @@ make protogen               # regenerate src/pb after editing proto/hunch_vpm.pr
 `make run` and `make deploy` additionally need the
 [`substreams` CLI](https://github.com/streamingfast/substreams/releases).
 
-CI runs `cargo fmt --check`, `cargo clippy` and `cargo build` for this package. It does not
-run `cargo test` or the vendored-proto check, so `make check` before pushing is the gate
-that covers everything.
+### `make lint` against CI
+
+CI's `substreams` job runs four steps: `cargo fmt --check`, `cargo clippy --target
+wasm32-unknown-unknown -- -D warnings`, `cargo test`, and `cargo build --release --target
+wasm32-unknown-unknown`.
+
+`make lint` is **stricter than that one step**, not identical to it: it passes `--all-targets`,
+so clippy also lints the test and benchmark targets, which CI's invocation does not. Both forms
+are clean today, so the difference costs nothing right now — but a warning that only appears
+under `#[cfg(test)]` fails `make lint` locally and passes CI, which is the confusing direction
+for that gap to run. The fix is to add `--all-targets` to the CI step so the two agree;
+`.github/workflows/ci.yml` is the file, and it is the only place the two commands can be made
+the same.
+
+What CI does **not** run is `make verify-vendored-proto`. That is the one check `make check`
+adds on top of CI, so run `make check` before pushing.
 
 ### Testing without a Firehose
 

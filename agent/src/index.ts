@@ -19,6 +19,7 @@ export * from "./research/graph-source.js";
 export * from "./research/client-binding.js";
 export * from "./research/decode.js";
 export * from "./config.js";
+export * from "./redact.js";
 export * from "./log.js";
 export * from "./loop.js";
 export * from "./render.js";

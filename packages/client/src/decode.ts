@@ -285,6 +285,7 @@ export function decodeMarket(raw: unknown): Market {
     residueOwner: addressFrom(field(market, 'residueOwner'), 'market.residueOwner'),
     outcomeCount: intFrom(field(market, 'n'), 'market.n'),
     kappa,
+    createdAt: bigIntFrom(field(market, 'createdAt'), 'market.createdAt'),
     resolutionTime: bigIntFrom(field(market, 'resolutionTime'), 'market.resolutionTime'),
     voidTimeout: bigIntFrom(field(market, 'voidTimeout'), 'market.voidTimeout'),
     status,

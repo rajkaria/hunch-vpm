@@ -84,6 +84,75 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ HUNCH_VPM_SUBGRAPH_URL: "ftp://example.test/graphql" })).toThrow(/must be http/);
   });
 
+  // The Graph's gateway carries its API key as a path segment, so a malformed endpoint
+  // variable can still hold a live credential — and a malformed one is exactly where a
+  // half-pasted or mis-pasted key ends up. ConfigError goes to the host's log.
+  describe("never echoes an endpoint variable's value", () => {
+    const KEY = "0123456789abcdef0123456789abcdef";
+
+    /**
+     * Values that do not parse as URLs, so they reach the "absolute URL" problem. Each is
+     * a plausible paste accident that still carries a working key: the scheme dropped, a
+     * protocol-relative copy, the key on its own in the wrong variable.
+     */
+    const malformed = [
+      `gateway.thegraph.com/api/${KEY}/subgraphs/id/Qm1`,
+      `//gateway.thegraph.com/api/${KEY}`,
+      KEY,
+    ];
+
+    for (const key of ["HUNCH_VPM_SUBGRAPH_URL", "HUNCH_VPM_ERC8004_SUBGRAPH_URL", "HUNCH_VPM_RPC_URL"]) {
+      it(`${key}, when it is not a URL`, () => {
+        for (const raw of malformed) {
+          let error: unknown;
+          try {
+            loadConfig(env({ [key]: raw }));
+          } catch (thrown) {
+            error = thrown;
+          }
+          expect(error, `${key}=${raw}`).toBeInstanceOf(ConfigError);
+          const problems = (error as ConfigError).problems.join("\n");
+          expect(problems, raw).not.toContain(KEY);
+          expect(problems, raw).not.toContain(raw);
+          // Named, and actionable, without the value: which variable, which rule, how long it was.
+          expect(problems).toContain(key);
+          expect(problems).toContain("must be an absolute URL");
+          expect(problems).toMatch(/\d+ characters/);
+        }
+      });
+
+      it(`${key}, when its scheme is wrong`, () => {
+        let error: unknown;
+        try {
+          loadConfig(env({ [key]: `ftp://gateway.thegraph.com/api/${KEY}/subgraphs/id/Qm1` }));
+        } catch (thrown) {
+          error = thrown;
+        }
+        expect(error).toBeInstanceOf(ConfigError);
+        const problems = (error as ConfigError).problems.join("\n");
+        expect(problems).not.toContain(KEY);
+        expect(problems).toContain(key);
+        // The scheme is the fault and is safe to name; nothing after it is.
+        expect(problems).toContain('"ftp:"');
+        expect(problems).not.toContain("gateway.thegraph.com");
+      });
+    }
+
+    it("says why the value is withheld, so the omission does not read as a bug", () => {
+      let error: unknown;
+      try {
+        loadConfig({ HUNCH_VPM_SUBGRAPH_URL: "not-a-url" });
+      } catch (thrown) {
+        error = thrown;
+      }
+      expect((error as ConfigError).message).toContain("Graph gateway API key");
+    });
+
+    it("still refuses the whole config rather than starting on a bad endpoint", () => {
+      expect(() => loadConfig({ HUNCH_VPM_SUBGRAPH_URL: `not-a-url-${KEY}` })).toThrow(ConfigError);
+    });
+  });
+
   it("treats blank strings as unset", () => {
     const config = loadConfig(env({ HUNCH_VPM_GRAPH_API_KEY: "   ", HUNCH_VPM_ERC8004_SUBGRAPH_URL: "" }));
     expect(config.graphApiKey).toBeUndefined();

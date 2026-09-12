@@ -98,7 +98,8 @@ Its absence is the reason this package's README contains this sentence:
 > proven here is the verification logic and its failure behaviour; what is not proven is
 > byte-level interoperability with AgentKit's client.
 
-196 tests pass and none of them can close that gap.
+224 tests pass — `pnpm --filter @hunch-vpm/agentkit-tier test`, 9 files — and none of them can
+close that gap.
 
 **Ask:** publish three static fixtures — a valid proof, an expired one, and one signed by the
 wrong key — with the expected verdict for each. Three files. It would let every independent

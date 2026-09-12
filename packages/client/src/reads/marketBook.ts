@@ -74,6 +74,9 @@ export async function marketBook(
     residue: market.residue,
     residueOwner: market.residueOwner,
     residueClaimed: market.residueClaimed,
+    // The other end of the arrival window. A reader that has to judge how much
+    // of that window is left cannot derive this from anything else here.
+    createdAt: market.createdAt,
     resolutionTime: market.resolutionTime,
     secondsToFreeze: maxBigInt(0n, market.resolutionTime - at),
     frozen: at >= market.resolutionTime,

@@ -26,6 +26,7 @@
     "paidOut": "0",
     "residue": "0",
     "residueClaimed": false,
+    "createdAt": "1999395200",
     "specId": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "strike": "300000000000",
     "direction": "ABOVE",

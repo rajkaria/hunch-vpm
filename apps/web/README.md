@@ -1,6 +1,10 @@
 # @hunch-vpm/web
 
-The web surface for the vested parimutuel on Arc, deployed at **vpm.playhunch.xyz**.
+The web surface for the vested parimutuel on Arc.
+
+**It is not deployed.** There is no hosted URL — `vpm.playhunch.xyz` is the hostname reserved
+for it below and it does not resolve (NXDOMAIN; the apex `playhunch.xyz` is a different,
+existing product). Run it locally with `pnpm --filter @hunch-vpm/web dev`.
 
 Next.js App Router, TypeScript, Tailwind v4, Vitest. Every page renders from a data module
 with a fixture implementation as the default, so the whole surface works with no network, no
@@ -13,7 +17,7 @@ From the repository root:
 ```sh
 pnpm install
 pnpm --filter @hunch-vpm/web dev        # http://localhost:3000
-pnpm --filter @hunch-vpm/web test       # vitest, 95 tests
+pnpm --filter @hunch-vpm/web test       # vitest, 124 tests in 6 files
 pnpm --filter @hunch-vpm/web typecheck  # next typegen && tsc --noEmit
 pnpm --filter @hunch-vpm/web build      # next build
 ```
@@ -148,8 +152,9 @@ extends `../../tsconfig.base.json`.
 deployment serves the fixture dataset and every page renders. Add the three variables above to
 point a deployment at a live subgraph.
 
-**Custom domain.** Add `vpm.playhunch.xyz` under Project → Settings → Domains, then create a
-`CNAME` on `playhunch.xyz`:
+**Custom domain.** None of this has been done — the record below does not exist yet. When you
+deploy: add `vpm.playhunch.xyz` under Project → Settings → Domains, then create a `CNAME` on
+`playhunch.xyz`:
 
 ```
 vpm    CNAME    cname.vercel-dns.com.
@@ -163,3 +168,18 @@ absolute and correct.
 **Caching.** The board, the market pages and the claim page revalidate every 30 seconds and the
 agents page every 60. The countdowns are client clocks reading an absolute deadline, so they
 stay correct between revalidations.
+
+## Live data, and the key that must not ship
+
+`NEXT_PUBLIC_*` variables are inlined into the bundle every visitor downloads. The Graph
+gateway carries its API key in the URL path, so pointing `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` (or
+`NEXT_PUBLIC_ERC8004_SUBGRAPH_URL`) at a keyed gateway URL would publish that key to everyone
+who opens the site.
+
+`src/lib/data/public-env.ts` refuses it. `readPublicEndpoint` throws at module load, so
+`next build` fails rather than shipping the key, with a message that names the variable and the
+problem and never prints the value — build logs are not private either. Unset is supported and
+falls back to the fixture layer, which is how the app runs in this repository today.
+
+Serve live data either from a keyless endpoint (a Studio query URL, or a gateway that
+authenticates by header) or through a proxy you own that holds the key server-side.

@@ -74,6 +74,12 @@ export interface Market {
   outcomeCount: number;
   /** kappa. `null` when unbounded. */
   kappa: bigint | null;
+  /**
+   * When the market was created, unix seconds. The start of the arrival window
+   * whose far end is `resolutionTime`: on a vested market, how much of that
+   * window is left is what decides whether a stake still has time to earn.
+   */
+  createdAt: bigint;
   /** The freeze, unix seconds. Entries at or after it are refused. */
   resolutionTime: bigint;
   /** Seconds after the freeze from which anyone may void. */
@@ -468,6 +474,14 @@ export interface MarketBook {
   residue: bigint;
   residueOwner: Address;
   residueClaimed: boolean;
+  /**
+   * When the market was created, unix seconds — `Market.createdAt` in the
+   * index. Together with `resolutionTime` it bounds the arrival window, which
+   * is what a vested reader needs to judge how much of that window a stake
+   * entering now would still have to earn in. Published rather than derived
+   * because nothing else in this response implies it.
+   */
+  createdAt: bigint;
   resolutionTime: bigint;
   /** Seconds until the freeze, floored at 0. */
   secondsToFreeze: bigint;

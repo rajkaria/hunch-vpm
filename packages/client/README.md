@@ -28,9 +28,25 @@ it becomes refundable. `bestHeadroom` exists so you never have to find that out 
 
 ## Install
 
-```bash
-pnpm add @hunch-vpm/client
+**This package is not published to npm.** `pnpm add @hunch-vpm/client` answers 404 from the
+registry. Publishing has not been done, and until it is, install from a checkout.
+
+Inside this workspace, which is how `agent`, `packages/mcp` and `apps/web` consume it:
+
+```jsonc
+// package.json
+"dependencies": { "@hunch-vpm/client": "workspace:*" }
 ```
+
+From a repository of your own, build it once and add it by path:
+
+```bash
+pnpm --filter @hunch-vpm/client build          # writes dist/, which is gitignored
+cd ../your-product && pnpm add file:../hunch-vpm/packages/client
+```
+
+The build is not optional — `files` ships only `dist` and this README, and there is no
+`prepare` script, so a `file:` install of an unbuilt checkout resolves to nothing.
 
 ## Configuration
 

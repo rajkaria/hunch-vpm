@@ -47,6 +47,7 @@ const MARKET_FIELDS = `
   paidOut
   residue
   residueClaimed
+  createdAt
   specId
   oracle
   feedKey

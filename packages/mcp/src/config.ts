@@ -202,7 +202,7 @@ function readInt(
   const raw = readString(env, key);
   if (raw === undefined) return fallback;
   if (!/^\d+$/.test(raw)) {
-    problems.push(`${key} must be a whole number, got "${raw}".`);
+    problems.push(`${key} must be a whole number. Its value is not shown here: any\n      environment variable can end up holding a pasted credential.`);
     return fallback;
   }
   const value = Number(raw);
@@ -217,6 +217,17 @@ function readInt(
   return value;
 }
 
+/**
+ * Endpoint variables are validated without ever echoing their value.
+ *
+ * `HUNCH_VPM_SUBGRAPH_URL`, `HUNCH_VPM_ERC8004_SUBGRAPH_URL` and `HUNCH_VPM_RPC_URL` can
+ * all hold a gateway URL, and the gateway's API key is a path segment (see `gatewayUrl`
+ * above). A malformed value is exactly the case where a credential is most likely to be
+ * in there — a half-pasted URL, a key pasted into the wrong variable — and `ConfigError`
+ * goes straight to the host's log and to the user's screen. So a problem reports the
+ * variable, the rule it broke, and a shape hint that cannot reconstruct the value: its
+ * length, and for a parseable URL its scheme, neither of which is the key.
+ */
 function readUrl(env: Env, key: string, problems: string[]): string | undefined {
   const raw = readString(env, key);
   if (raw === undefined) return undefined;
@@ -224,21 +235,32 @@ function readUrl(env: Env, key: string, problems: string[]): string | undefined 
   try {
     parsed = new URL(raw);
   } catch {
-    problems.push(`${key} must be an absolute URL, got "${raw}".`);
+    problems.push(
+      `${key} must be an absolute URL such as https://host/path — the value is ${describeLength(raw)} and did not parse as one. ` +
+        `Its value is not shown here because this variable can carry a Graph gateway API key in its path.`,
+    );
     return undefined;
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
-    problems.push(`${key} must be http(s), got "${parsed.protocol}".`);
+    problems.push(
+      `${key} must be http(s); its scheme is "${parsed.protocol}". ` +
+        `The rest of the value is not shown here because this variable can carry a Graph gateway API key in its path.`,
+    );
     return undefined;
   }
   return raw;
+}
+
+/** A shape hint for a value that must not be printed. Length alone reconstructs nothing. */
+function describeLength(raw: string): string {
+  return `${raw.length} character${raw.length === 1 ? "" : "s"}`;
 }
 
 function readAddress(env: Env, key: string, fallback: string, problems: string[]): string {
   const raw = readString(env, key);
   if (raw === undefined) return fallback;
   if (!isAddress(raw)) {
-    problems.push(`${key} must be a 20-byte hex address, got "${raw}".`);
+    problems.push(`${key} must be a 20-byte hex address. Its value is not shown here: any\n      environment variable can end up holding a pasted credential.`);
     return fallback;
   }
   return normalizeAddress(raw);
@@ -248,7 +270,7 @@ function readOptionalAddress(env: Env, key: string, problems: string[]): string 
   const raw = readString(env, key);
   if (raw === undefined) return undefined;
   if (!isAddress(raw)) {
-    problems.push(`${key} must be a 20-byte hex address, got "${raw}".`);
+    problems.push(`${key} must be a 20-byte hex address. Its value is not shown here: any\n      environment variable can end up holding a pasted credential.`);
     return undefined;
   }
   return normalizeAddress(raw);

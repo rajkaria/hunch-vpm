@@ -64,8 +64,8 @@ const MARKET_BOOK = {
   frozen: false,
   voidTimeout: 3_600n,
   voidableFrom: BigInt(NOW + 90_000),
-  // The client's MarketBook does not publish an opening time yet; the subgraph records it
-  // as Market.createdAt, which is the name the decoder falls back to.
+  // The opening time, under the client's name for it. `client-integration.test.ts` is
+  // what keeps this literal honest about the shape the client really returns.
   createdAt: BigInt(NOW - 3_600),
   books: [
     {

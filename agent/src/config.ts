@@ -9,6 +9,7 @@ import type { Hex } from "./domain/types.js";
 import { parseUsdc, usdc } from "./domain/units.js";
 import type { PolicyConfig } from "./policy/config.js";
 import { DEFAULT_POLICY, policyFromEnv, withOverrides } from "./policy/config.js";
+import { redactUrl } from "./redact.js";
 import type { ExecutionMode } from "./circle/types.js";
 
 export type ChainName = "arc-testnet" | "arc";
@@ -204,6 +205,12 @@ export function loadConfig(env: Env): AgentConfig {
  * A config summary safe to print. Secrets appear as "set"/"unset" and never as values —
  * this is the only function that is allowed to describe them at all.
  *
+ * Endpoints count as secrets. `HUNCH_SUBGRAPH_URL` and `HUNCH_INTEL_URL` are printed
+ * through `redactUrl`, which keeps the scheme, the host and the shape of the path and
+ * replaces every identifying segment with `***`, because The Graph's gateway carries its
+ * API key in the path: `https://gateway.thegraph.com/api/<API_KEY>/subgraphs/id/<ID>`.
+ * A banner that echoed the variable would print that key to stdout on every run.
+ *
  * It covers every policy knob as well as the plumbing, because a knob that silently kept
  * its default after a typo'd override is the failure this banner exists to prevent.
  */
@@ -215,8 +222,8 @@ export function describeConfig(config: AgentConfig): readonly string[] {
     `chain           ${config.chain.name} (chainId ${String(config.chain.chainId)})`,
     `settler         ${config.settler}${config.settler === PLACEHOLDER_ADDRESS ? "  [placeholder — nothing deployed yet]" : ""}`,
     `usdc            ${config.chain.usdc}  (native gas token, 6dp via ERC-20)`,
-    `subgraph        ${config.subgraphUrl ?? "none — dry-run fixtures"}`,
-    `intel           ${config.intelUrl ?? "none — dry-run quotes"}`,
+    `subgraph        ${config.subgraphUrl === undefined ? "none — dry-run fixtures" : redactUrl(config.subgraphUrl)}`,
+    `intel           ${config.intelUrl === undefined ? "none — dry-run quotes" : redactUrl(config.intelUrl)}`,
     `circle api key  ${flag(config.circle.apiKey)}`,
     `circle wallet   ${config.circle.walletId === "" ? "unset" : config.circle.walletId}`,
     `entity secret   ${flag(config.circle.entitySecretCiphertext)} (ciphertext; the raw secret never reaches this process)`,

@@ -27,6 +27,7 @@ function market(books: Book[], partial: Partial<Market> = {}): Market {
     residueOwner: '0x2222222222222222222222222222222222222222',
     outcomeCount: books.length,
     kappa: 30n,
+    createdAt: 1_999_395_200n,
     resolutionTime: 2_000_000_000n,
     voidTimeout: 86_400n,
     status: 'Open',

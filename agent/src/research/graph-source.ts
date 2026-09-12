@@ -255,7 +255,7 @@ export class GraphVenue implements Venue {
  * Expected from `marketBook(marketId)` — the client's `MarketBook`:
  * ```
  * { marketId, onChainMarketId, settler, token, status: "Open"|"Resolved"|"Voided",
- *   kappa: bigint|null, resolutionTime, acceptedPool, winner: number|null,
+ *   kappa: bigint|null, createdAt, resolutionTime, acceptedPool, winner: number|null,
  *   spec: { feedKey, strike, direction: "above"|"below", maxStaleness } | null,
  *   books: [{ outcome, principal, vested, capacity: bigint|null, headroom: bigint|null }] }
  * ```
@@ -263,9 +263,13 @@ export class GraphVenue implements Venue {
  * unix seconds and are narrowed to numbers here, because everything downstream compares
  * them to a clock.
  *
- * Two fields the agent needs and the client does not publish today are handled explicitly:
- * `openedAt` fails by name (see below), and per-outcome labels fall back to the feed
- * direction for a binary market and to the outcome index otherwise.
+ * Two fields the client does not publish under the agent's own name are handled
+ * explicitly: the opening time arrives as `createdAt` and is read as `openedAt` (see
+ * below), and per-outcome labels fall back to the feed direction for a binary market and
+ * to the outcome index otherwise.
+ *
+ * `test/client-integration.test.ts` runs this decoder over a `MarketBook` the client
+ * itself builds, so a field that moves on one side of this comment fails on the other.
  */
 export function decodeMarket(raw: unknown, marketId: string): MarketSnapshot {
   const path = `marketBook(${marketId})`;
@@ -333,8 +337,9 @@ function decodeOnChainId(source: Record<string, unknown>, path: string, ...keys:
  * Unix seconds the market opened — the start of its arrival window, and the denominator of
  * the vesting-outlook rule (README step 4).
  *
- * The subgraph records it as `Market.createdAt`, but the client's `MarketBook` does not
- * expose it yet. Rather than assume a window, this fails by name: the rule it feeds is the
+ * The subgraph records it as `Market.createdAt` and the client's `MarketBook` publishes it
+ * under that name, which is the name read here first after the agent's own. A source that
+ * publishes neither fails by name rather than assuming a window: the rule it feeds is the
  * one the agent's whole thesis rests on, and a guessed denominator would quietly resize
  * every stake.
  */
@@ -344,7 +349,8 @@ function decodeOpenedAt(source: Record<string, unknown>, path: string): number {
     throw new DecodeError(
       `${path}.openedAt: missing. The agent needs the market's opening time to judge how much ` +
         `of the arrival window is left; the subgraph records it as Market.createdAt and the ` +
-        `client's MarketBook does not surface it yet.`,
+        `client publishes it under that name, so a response without either is not a market ` +
+        `this agent can size a stake on.`,
     );
   }
   return Number(asBigint(raw, `${path}.openedAt`));

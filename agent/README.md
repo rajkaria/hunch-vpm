@@ -4,6 +4,10 @@ A demo agent for the Vested Parimutuel. It reads the book through The Graph, dec
 to do with it, and settles in USDC on Arc through a Circle Agent Wallet, paying for its
 research with Gateway Nanopayments.
 
+**That is what live mode does. Nothing is deployed, so nothing has run live.** Everything
+described below has been exercised in dry-run — no key, no network, no contracts — which is
+the default and the only mode that works today.
+
 The interesting part is not that it trades. It is that the decision procedure is written
 against the mechanism it is trading. A classic parimutuel pays every unit of stake the
 same multiple regardless of when it landed, so an agent in one has nothing to think about
@@ -287,13 +291,20 @@ contracts are deployed yet, so the settler defaults to
 
 ```
 hunch-agent research        read every market, buy one quote per feed, print the book
-hunch-agent decide          the same, plus the decision table for each market
+hunch-agent decide          the same, plus a decision table per market that has one
 hunch-agent run             research -> decide -> enter -> monitor -> claim
 hunch-agent claim           settle whatever the resolved markets owe this wallet
 ```
 
 Flags: `--rounds N`, `--bankroll USDC`, `--fixtures PATH`, `--market ID` (repeatable),
 `--live`, `--dry-run`, `--json`.
+
+A market gets a table only when the procedure reached the per-outcome arithmetic. The three
+early exits — `market-not-open`, `inside-freeze-window` and `no-estimate` — print the `decide`
+header and the subject line and stop, because there is nothing per-outcome to show. On the
+committed fixtures that is two of the six markets, so `decide` prints four tables. The table
+itself is 105 columns; the widest line either command prints is the closing `nanopayments`
+summary at 187, because it carries a full transaction hash.
 
 ---
 
@@ -341,10 +352,13 @@ where the two packages do not line up are handled explicitly rather than papered
   who is against you if you take `o` — so that figure is carried as
   `MarketSnapshot.opposingTrust` and used as given. Deriving an opposing figure from it
   again would flip it twice and hand each outcome its own side's reputation.
-- The client's `MarketBook` does not publish the market's opening time, which rule 4 needs
-  as the denominator of the arrival window. The subgraph records it as `Market.createdAt`;
-  until the client surfaces it, the decoder fails by name instead of assuming a window and
-  quietly resizing every stake.
+- The market's opening time — the denominator of rule 4's arrival window — is
+  `Market.createdAt` in the subgraph and `createdAt` on the client's `MarketBook`; the
+  agent calls it `openedAt` and reads either name. A source that publishes neither fails
+  by name rather than assuming a window and quietly resizing every stake.
+  `test/client-integration.test.ts` decodes a `MarketBook` the client itself builds, from
+  the client's own recorded subgraph response, so a field that goes missing on one side of
+  this seam fails on the other instead of in a live run.
 
 **Entering is two calls, not one.** `VestedParimutuel.enter` pulls the stake with
 `transferFrom`, so the venue sends the client's `approveCalldata` before its
@@ -379,7 +393,7 @@ be developed and demonstrated against something that behaves like the settler.
 pnpm --filter @hunch-vpm/agent test
 ```
 
-163 tests, no network, no key, no fixtures that expire. `test/loop.test.ts` and
+181 tests in 10 files, no network, no key, no fixtures that expire. `test/loop.test.ts` and
 `test/cli.test.ts` pass a `fetch` that throws, so any network call in the dry-run path is a
 failure rather than a slow test.
 

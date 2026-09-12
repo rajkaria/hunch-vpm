@@ -64,7 +64,7 @@ test: ## Run the unit tests on the host target
 	cargo test
 
 .PHONY: lint
-lint: ## rustfmt and clippy, the same way CI runs them
+lint: ## rustfmt and clippy over the lib AND the tests (CI lints the lib only)
 	cargo fmt --check
 	cargo clippy --all-targets --target $(TARGET) -- -D warnings
 

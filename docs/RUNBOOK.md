@@ -60,19 +60,34 @@ pnpm verify
 
 That is `scripts/verify.sh`: `forge build`, `forge test`, then `pnpm -r --if-present
 typecheck`, `test` and `build` across the workspace, each stage skipped cleanly if the thing
-it checks does not exist yet. A green run today looks like this:
+it checks does not exist yet. A green run looks like this:
 
-| Suite | Count |
-|---|---|
-| `contracts` (Foundry, 11 suites) | 59 |
-| `packages/agentkit-tier` | 224 |
-| `packages/mcp` | 174 |
-| `agent` | 163 |
-| `packages/client` | 153 |
-| `apps/web` | 106 |
-| `subgraph-erc8004-arc` (node) | 38 |
-| `subgraph-erc8004-arc` (matchstick) | 38 |
-| `subgraph` (matchstick) | 17 |
+| Suite | Count | Measured by |
+|---|---|---|
+| `contracts` (Foundry, 11 suites) | 59 | `forge test --root contracts` |
+| `packages/agentkit-tier` (9 files) | 224 | `pnpm --filter @hunch-vpm/agentkit-tier test` |
+| `packages/mcp` (14 files) | 182 | `pnpm --filter @hunch-vpm/mcp test` |
+| `agent` (10 files) | 181 | `pnpm --filter @hunch-vpm/agent test` |
+| `packages/client` (19 files) | 232 | `pnpm --filter @hunch-vpm/client test` |
+| `apps/web` (6 files) | 124 | `pnpm --filter @hunch-vpm/web test` |
+| `subgraph-erc8004-arc` (node) | 38 | `pnpm --filter @hunch-vpm/subgraph-erc8004-arc test:node` |
+| `subgraph-erc8004-arc` (matchstick) | 38 | `pnpm --filter @hunch-vpm/subgraph-erc8004-arc test:matchstick` |
+| `subgraph` (matchstick) | 17 | `pnpm --filter @hunch-vpm/subgraph test` |
+
+Every figure above was read off that command's own summary line. **It is a snapshot, and it
+goes stale the next time anyone adds a test** — treat the right-hand column as the source of
+truth and the middle one as a reading. If you need the current numbers, take ninety seconds and
+read them yourself:
+
+```sh
+forge test --root contracts | tail -1
+for d in packages/agentkit-tier packages/mcp packages/client agent apps/web; do
+  printf '%-24s ' "$d"; (cd "$d" && npx vitest run 2>&1 | grep -oE 'Tests +[0-9]+ passed')
+done
+```
+
+The Substreams package is **not** in `pnpm verify` — it is Rust, it has its own CI job, and it
+is checked with `cd substreams && make check`. `cargo test` there reports **91** passing tests.
 
 `subgraph-erc8004-arc`'s `test` script runs `graph codegen` first and `graph test` last, which
 means a cold run needs the network: codegen writes `generated/`, which is not committed, and
@@ -112,13 +127,18 @@ So set `ARC_TESTNET_RPC_URL` and `ARCSCAN_API_KEY` in the environment, and deplo
 
 ```sh
 ORACLE_KIND=stork \
-forge script script/Deploy.s.sol \
+forge script contracts/script/Deploy.s.sol \
   --root contracts \
   --rpc-url arc_testnet \
   --account <keystore-account> \
   --broadcast \
   --verify
 ```
+
+The script path is given **relative to the directory you are standing in**, not to `--root`.
+From the repository root that is `contracts/script/Deploy.s.sol`; `script/Deploy.s.sol` with
+`--root contracts` fails with `contract source info format must be <path>:<contractname>`.
+From inside `contracts/`, drop `--root` and the prefix both.
 
 `--account` reads an encrypted Foundry keystore and prompts for the password. Use that, a
 hardware wallet (`--ledger`, `--trezor`), or `--interactive`. Do not put a raw key on the
@@ -143,21 +163,45 @@ against the one you expected before you go further.
 
 ### Recording the addresses
 
-The script prints a deployments JSON to stdout. Save it:
+**`Deploy.s.sol` does not write any file.** It `console.log`s a deployments JSON to stdout and
+stops there — `fs_permissions` in `contracts/foundry.toml` grants write access to `./GAS.md`
+and nothing else, so the script could not write `deployments/` even if it tried. Creating the
+file is a step you do.
+
+The JSON does not come out alone, either. `forge script` wraps it in its own output, indented
+two spaces under a `== Logs ==` header:
 
 ```
-{
-  "chainId": 5042002,
-  "vestedParimutuel": "0x...",
-  "classicParimutuel": "0x...",
-  "priceOracle": "0x...",
-  "feedResolver": "0x...",
-  "marketFactory": "0x..."
-}
+== Logs ==
+  {
+    "chainId": 5042002,
+    "vestedParimutuel": "0x...",
+    "classicParimutuel": "0x...",
+    "priceOracle": "0x...",
+    "feedResolver": "0x...",
+    "marketFactory": "0x..."
+  }
 ```
 
-Write that to `deployments/arc-testnet.json` (`deployments/arc-mainnet.json` for chain 5042)
-and commit it. One file per network, and a network with no file has not been deployed to —
+So a bare `> deployments/arc-testnet.json` gives you a file that is not JSON. Capture the run,
+then cut the block out of it:
+
+```sh
+ORACLE_KIND=stork \
+forge script contracts/script/Deploy.s.sol \
+  --root contracts --rpc-url arc_testnet --account <keystore-account> --broadcast --verify \
+  | tee deploy.log
+
+sed -n '/^  {$/,/^  }$/p' deploy.log | sed 's/^  //' > deployments/arc-testnet.json
+```
+
+(`deployments/arc-mainnet.json` for chain 5042.) `deploy.log` is caught by `*.log` in
+`.gitignore`, so the transcript stays local; keep it until the addresses are wired through, then
+delete it. Read the JSON before you commit it — those addresses are the only record of the
+deploy, and the `sed` above is a text cut, not a parser. Copying the six lines out of the
+terminal by hand is an equally good answer.
+
+Then commit it. One file per network, and a network with no file has not been deployed to —
 absence means "not deployed", never "look somewhere else". `deployments/README.md` holds the
 same table.
 
@@ -302,8 +346,10 @@ does not belong in any of these three.
 
 ### Domain
 
-Add `vpm.playhunch.xyz` under Project → Settings → Domains, then create the record on
-`playhunch.xyz`:
+**Not done.** `vpm.playhunch.xyz` is the name reserved for this surface, not a name that
+resolves — it answers NXDOMAIN today. The apex `playhunch.xyz` does resolve, because it is the
+parent product. When you deploy: add `vpm.playhunch.xyz` under Project → Settings → Domains,
+then create the record on `playhunch.xyz`:
 
 ```
 vpm    CNAME    cname.vercel-dns.com.
@@ -499,6 +545,24 @@ make deployments        # what is running
 
 `make deploy` runs `make pack` first, so it builds the wasm, packs the `.spkg` and ships it in
 one go.
+
+## The public subgraph URL is checked at build time
+
+`NEXT_PUBLIC_*` variables are inlined by Next into the bundle every visitor downloads. The
+Graph gateway carries its API key in the URL path, so a keyed gateway URL in
+`NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` or `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL` would publish that key
+to everyone who opens the site.
+
+`apps/web` refuses to build in that case. `readPublicEndpoint` throws at module load, so
+`next build` fails with a message naming the variable and what is wrong — it never prints the
+value, because build logs are not private either. Leaving the variable unset is supported and
+falls back to the fixture data layer.
+
+Two ways to serve live data without shipping a key:
+
+- a keyless endpoint (a Studio query URL, or a gateway that authenticates by header), or
+- a proxy you own, with the key held server-side and the browser pointed at the proxy.
+
 
 ## Secrets
 

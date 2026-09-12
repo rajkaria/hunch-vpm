@@ -46,7 +46,6 @@ jobs:
   substreams:
     name: substreams
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('substreams/Cargo.toml') != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

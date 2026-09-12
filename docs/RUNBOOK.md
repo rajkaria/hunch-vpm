@@ -39,17 +39,18 @@ deploy that package — building, testing and linting it do not.
 ## Local development from a clean clone
 
 ```sh
-git clone <repo> hunch-vpm
+git clone --recurse-submodules <repo> hunch-vpm
 cd hunch-vpm
 corepack enable
 pnpm install
 ```
 
-Then fetch the Solidity dependency. `contracts/lib/` is gitignored and there are no git
-submodules, so a fresh clone has no `forge-std` and `forge build` fails until you install it:
+`contracts/lib/forge-std` is a pinned git submodule — it is the one path `contracts/lib/` is
+gitignored *except* for. `--recurse-submodules` fetches it with the clone; if you cloned
+without the flag, `forge build` fails until you fetch it:
 
 ```sh
-cd contracts && forge install foundry-rs/forge-std && cd ..
+git submodule update --init --recursive
 ```
 
 Now the gate:

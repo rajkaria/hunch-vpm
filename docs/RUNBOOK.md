@@ -4,9 +4,10 @@ How to run this repo locally, put it on Arc testnet, index it, serve it, open a 
 resolve one, and handle the feed going quiet. Every command here exists in the repo or in a
 tool the repo already depends on.
 
-Nothing in this repo is deployed. Every contract address in committed configuration is
-`0x0000000000000000000000000000000000000000`, on purpose, and every step below that needs a
-real address says which file to put it in.
+**Deployed today:** the web surface only, at <https://hunch-vpm.vercel.app>, serving the
+fixture dataset. Nothing on-chain and neither subgraph is deployed: every contract address in
+committed configuration is `0x0000000000000000000000000000000000000000`, on purpose, and every
+step below that needs a real address says which file to put it in.
 
 - [What you need installed](#what-you-need-installed)
 - [Local development from a clean clone](#local-development-from-a-clean-clone)
@@ -68,7 +69,7 @@ it checks does not exist yet. A green run looks like this:
 | `contracts` (Foundry, 11 suites) | 59 | `forge test --root contracts` |
 | `packages/agentkit-tier` (9 files) | 224 | `pnpm --filter @hunch-vpm/agentkit-tier test` |
 | `packages/mcp` (14 files) | 182 | `pnpm --filter @hunch-vpm/mcp test` |
-| `agent` (10 files) | 181 | `pnpm --filter @hunch-vpm/agent test` |
+| `agent` (10 files) | 185 | `pnpm --filter @hunch-vpm/agent test` |
 | `packages/client` (19 files) | 232 | `pnpm --filter @hunch-vpm/client test` |
 | `apps/web` (6 files) | 124 | `pnpm --filter @hunch-vpm/web test` |
 | `subgraph-erc8004-arc` (node) | 38 | `pnpm --filter @hunch-vpm/subgraph-erc8004-arc test:node` |
@@ -314,8 +315,19 @@ npx graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 hunc
 
 ## Deploying the web surface
 
-The repository is a pnpm workspace, so the Vercel project has to be pointed at the app
-directory rather than the root.
+**This is done.** The project is `hunch-vpm` on Vercel, connected to this GitHub repository,
+and production is <https://hunch-vpm.vercel.app>. A push to `main` redeploys it — `vercel.json`
+at the repository root carries the whole build configuration (`git.deploymentEnabled.main`),
+so the settings below are already in effect and are recorded here for a rebuild from scratch.
+
+With no `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` set — which is the current state — it serves the
+fixture dataset. Point it at a live subgraph by setting that variable, and nothing else has
+to change.
+
+The repository is a pnpm workspace, and `vercel.json` builds it from the root with a filter
+(`pnpm --filter @hunch-vpm/web build`) rather than setting a Root Directory, because the app
+extends `../../tsconfig.base.json`. If you configure a project by hand in the dashboard
+instead, point it at the app directory:
 
 | Setting | Value |
 |---|---|
@@ -347,9 +359,10 @@ does not belong in any of these three.
 
 ### Domain
 
-**Not done.** `vpm.playhunch.xyz` is the name reserved for this surface, not a name that
-resolves — it answers NXDOMAIN today. The apex `playhunch.xyz` does resolve, because it is the
-parent product. When you deploy: add `vpm.playhunch.xyz` under Project → Settings → Domains,
+**Not done.** The surface answers on `hunch-vpm.vercel.app`; `vpm.playhunch.xyz` is the name
+reserved for it, not a name that resolves — it answers NXDOMAIN today. The apex
+`playhunch.xyz` does resolve, because it is the parent product. To move it over: add
+`vpm.playhunch.xyz` under Project → Settings → Domains,
 then create the record on `playhunch.xyz`:
 
 ```

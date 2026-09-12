@@ -59,7 +59,9 @@ jobs:
         run: cargo fmt --manifest-path substreams/Cargo.toml --check
       - name: cargo clippy
         run: cargo clippy --manifest-path substreams/Cargo.toml --target wasm32-unknown-unknown -- -D warnings
+      # --lib explicitly: the crate is cdylib + rlib, and a bare `cargo test` reports the
+      # empty doc-test target last, which reads as "0 passed" and hides all 91 unit tests.
       - name: cargo test
-        run: cargo test --manifest-path substreams/Cargo.toml
+        run: cargo test --manifest-path substreams/Cargo.toml --lib
       - name: cargo build
         run: cargo build --manifest-path substreams/Cargo.toml --release --target wasm32-unknown-unknown

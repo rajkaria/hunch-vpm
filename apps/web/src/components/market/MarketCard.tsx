@@ -25,7 +25,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
   const settled = market.status !== 'Open';
 
   return (
-    <article className="group relative flex flex-col border border-edge bg-raised transition-colors focus-within:border-paper/25 hover:border-paper/25">
+    <article className="lift group relative flex flex-col rounded-card border border-edge bg-raised transition-colors focus-within:border-lime/40 hover:border-lime/40 hover:bg-paper/5">
       <div className="flex items-center gap-2 border-b border-edge px-4 py-2.5">
         <Badge tone="quiet">{market.subject}</Badge>
         <SettlerBadge kind={market.settlerKind} />
@@ -49,7 +49,7 @@ export function MarketCard({ market }: { market: MarketSummary }) {
           return (
             <div key={outcome.outcome}>
               <div className="flex items-baseline gap-2">
-                <span aria-hidden className={`h-2 w-2 shrink-0 ${TONE_DOT[outcome.tone]}`} />
+                <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${TONE_DOT[outcome.tone]}`} />
                 <span className={`min-w-0 truncate text-sm ${won ? 'font-semibold' : ''}`}>
                   {outcome.label}
                   {won ? <span className="ml-2 text-xs uppercase tracking-wider text-muted">won</span> : null}

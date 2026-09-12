@@ -149,7 +149,7 @@ function NewEntry({
       <div className="flex flex-wrap items-end gap-4">
         <label className="min-w-[9rem] flex-1">
           <span className="mb-1.5 block text-xs uppercase tracking-[0.12em] text-faint">Stake</span>
-          <div className="flex items-center border border-edge bg-ink focus-within:border-paper/40">
+          <div className="flex items-center rounded-control border border-edge bg-ink focus-within:border-paper/40">
             <input
               inputMode="decimal"
               value={amountText}
@@ -167,7 +167,7 @@ function NewEntry({
           <select
             value={outcome}
             onChange={(event) => onOutcome(Number(event.target.value))}
-            className="w-full appearance-none border border-edge bg-ink px-3 py-2.5 text-base outline-none focus:border-paper/40"
+            className="w-full appearance-none rounded-control border border-edge bg-ink px-3 py-2.5 text-base outline-none focus:border-paper/40"
           >
             {books.map((entry) => (
               <option key={entry.outcome} value={entry.outcome}>
@@ -185,7 +185,7 @@ function NewEntry({
       )}
 
       {settlerKind === 'classic' ? (
-        <p className="mt-4 border border-edge px-3 py-2 text-sm text-muted">
+        <p className="mt-4 rounded-control border border-edge px-3 py-2 text-sm text-muted">
           This market settles under the classic rule, so the vested column is what the same stake would have
           earned had it been opened on the vested settler with the same books.
         </p>
@@ -274,7 +274,7 @@ function ExistingPosition({
           <select
             value={position.positionId}
             onChange={(event) => onPosition(event.target.value)}
-            className="num w-full appearance-none border border-edge bg-ink px-3 py-2.5 text-base outline-none focus:border-paper/40"
+            className="num w-full appearance-none rounded-control border border-edge bg-ink px-3 py-2.5 text-base outline-none focus:border-paper/40"
           >
             {positions.map((entry) => {
               const label = books.find((candidate) => candidate.outcome === entry.outcome)?.label ?? '';
@@ -326,7 +326,7 @@ function Acceptance({
 
   if (refused === 0n) {
     return (
-      <p className="mt-5 border border-edge px-3 py-2.5 text-sm text-muted">
+      <p className="mt-5 rounded-control border border-edge px-3 py-2.5 text-sm text-muted">
         All <Amount value={accepted} className="text-paper" /> accepted.
         {maxFullyAccepted === null ? (
           <> Capacity is unbounded here, so nothing is refused for want of room.</>
@@ -342,7 +342,7 @@ function Acceptance({
   }
 
   return (
-    <div className="mt-5 border border-edge px-3 py-2.5 text-sm">
+    <div className="mt-5 rounded-control border border-edge px-3 py-2.5 text-sm">
       {/* Refusal is not an error and is not written as one. The stake did not
           fail; the opposing book did not have the room to cover it, and the
           rest comes straight back. */}
@@ -372,7 +372,7 @@ function Columns({
   classicNote: string;
 }) {
   return (
-    <div className="mt-5 grid gap-px border border-edge bg-edge sm:grid-cols-2">
+    <div className="mt-5 grid gap-px overflow-hidden rounded-card border border-edge bg-edge sm:grid-cols-2">
       <Column
         title="Vested"
         amount={comparison.vpm}
@@ -459,7 +459,7 @@ function Segmented<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div className="flex border border-edge" role="group">
+    <div className="flex overflow-hidden rounded-control border border-edge" role="group">
       {options.map((option) => (
         <button
           key={option.value}

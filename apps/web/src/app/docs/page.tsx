@@ -175,7 +175,7 @@ export default function DocsPage() {
           </dl>
         </Section>
 
-        <div className="mt-10 border border-edge bg-raised px-5 py-6">
+        <div className="lift mt-10 rounded-card border border-edge bg-raised px-5 py-6">
           <p className="font-display text-lg">Read the paper</p>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             The proofs, the fixed-point argument for the seed clamp, and the full treatment of the exit and void
@@ -233,7 +233,7 @@ function Mono({ children }: { children: React.ReactNode }) {
 
 function Formula({ children }: { children: React.ReactNode }) {
   return (
-    <p className="scroll-x border border-edge bg-raised px-4 py-3">
+    <p className="scroll-x rounded-control border border-edge bg-raised px-4 py-3">
       <code className="num whitespace-nowrap text-sm text-paper">{children}</code>
     </p>
   );

@@ -161,7 +161,7 @@ function ClaimRow({ item }: { item: ClaimableItem }) {
           {item.question}
         </Link>
         <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-          <span className="num border border-edge px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em]">
+          <span className="num rounded-tag border border-edge px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em]">
             {item.call}({item.argument.toString()})
           </span>
           {parts.map((part) => (
@@ -188,7 +188,7 @@ function ClaimRow({ item }: { item: ClaimableItem }) {
               type="button"
               disabled
               aria-describedby={`undeployed-${item.id}`}
-              className="cursor-not-allowed border border-edge px-3.5 py-2 text-sm font-semibold text-faint"
+              className="cursor-not-allowed rounded-control border border-edge px-3.5 py-2 text-sm font-semibold text-faint"
             >
               Pull
             </button>

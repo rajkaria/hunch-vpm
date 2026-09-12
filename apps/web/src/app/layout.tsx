@@ -103,8 +103,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
  */
 function FixtureNotice() {
   return (
-    <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 border border-edge bg-raised px-4 py-3 text-sm">
-      <span className="num bg-paper px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wider text-ink">
+    <div className="lift mb-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card border border-edge bg-raised px-4 py-3 text-sm">
+      <span className="inline-flex items-center rounded-tag border border-amber/35 bg-amber/10 px-2.5 py-1 text-[11px] leading-none font-semibold tracking-[0.05em] whitespace-nowrap text-amber uppercase">
         Sample data
       </span>
       <span className="text-muted">

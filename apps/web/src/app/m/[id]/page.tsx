@@ -88,7 +88,7 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
         ← All markets
       </Link>
 
-      <header className="border border-edge bg-raised">
+      <header className="lift rounded-card border border-edge bg-raised">
         <div className="flex flex-wrap items-center gap-2 border-b border-edge px-4 py-2.5 sm:px-5">
           <Badge tone="quiet">{market.subject}</Badge>
           <SettlerBadge kind={market.settlerKind} />
@@ -98,9 +98,14 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
         </div>
 
         <div className="px-4 py-5 sm:px-5">
-          <h1 className="max-w-3xl text-2xl leading-tight sm:text-3xl">{market.question}</h1>
+          <h1 className="display-xl max-w-3xl text-[28px] sm:text-4xl">{market.question}</h1>
 
-          <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 sm:grid-cols-4">
+          {/*
+            The four headline figures, ruled off from each other. A gap alone
+            let "each book can absorb kappa times its own principal" read as if
+            it belonged to the column on its left; a hairline says it does not.
+          */}
+          <dl className="mt-7 grid grid-cols-2 gap-x-6 gap-y-6 sm:grid-cols-4 sm:gap-x-0 sm:[&>*+*]:border-l sm:[&>*+*]:border-edge sm:[&>*+*]:pl-6 sm:[&>*]:pr-6">
             <Stat label="Accepted principal">
               <Amount value={market.acceptedPool} />
             </Stat>

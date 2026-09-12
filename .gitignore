@@ -44,3 +44,6 @@ docs/PLAN.md
 docs/SPEC.md
 *.internal.md
 *.private.md
+
+# Autonomous run state — internal, never ships
+.ocean/

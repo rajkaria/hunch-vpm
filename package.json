@@ -5,7 +5,9 @@
   "description": "The Vested Parimutuel, live on Arc",
   "license": "MIT",
   "packageManager": "pnpm@10.33.0",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "verify": "bash scripts/verify.sh",
     "contracts:build": "forge build --root contracts",
@@ -13,6 +15,7 @@
   },
   "devDependencies": {
     "typescript": "^5.7.3",
-    "vitest": "^3.0.5"
+    "vitest": "^3.0.5",
+    "next": "16.3.5"
   }
 }

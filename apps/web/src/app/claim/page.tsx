@@ -178,7 +178,7 @@ function ClaimRow({ item }: { item: ClaimableItem }) {
         {deployed ? (
           <button
             type="button"
-            className="border border-lime px-3.5 py-2 text-sm font-semibold text-lime transition-colors hover:bg-lime hover:text-ink"
+            className="rounded-control border border-lime px-3.5 py-2 text-sm font-semibold text-lime transition-colors hover:bg-lime hover:text-ink"
           >
             Pull
           </button>

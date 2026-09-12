@@ -51,15 +51,20 @@ describe('StakePanel', () => {
     expect(screen.queryByText('If you entered now')).toBeNull();
   });
 
+  // The panel renders EntryFlow by default, which needs a wagmi provider. These
+  // cases are about the estimate, so they pass a stub action instead of mounting
+  // a wallet — `entry-flow.test.tsx` covers the flow itself.
+  const stub = () => null;
+
   it('reports a full acceptance when the opposing book has room', () => {
-    render(<StakePanel market={market} />);
+    render(<StakePanel market={market} action={stub} />);
     fireEvent.change(amountField(), { target: { value: '10' } });
     expect(screen.getByText('Accepted in full')).toBeTruthy();
   });
 
   it('reports a partial acceptance, and names the book that bound it', () => {
     // 20,000 offered on "Above" vests into "Below", which has ~6,000 of room.
-    render(<StakePanel market={market} />);
+    render(<StakePanel market={market} action={stub} />);
     fireEvent.change(amountField(), { target: { value: '20000' } });
 
     expect(screen.getByText('Partly accepted')).toBeTruthy();
@@ -73,17 +78,26 @@ describe('StakePanel', () => {
   });
 
   it('shows accepted and refused as a pair, both present', () => {
-    render(<StakePanel market={market} />);
+    render(<StakePanel market={market} action={stub} />);
     fireEvent.change(amountField(), { target: { value: '20000' } });
     expect(screen.getByText('Accepted')).toBeTruthy();
     expect(screen.getByText('Refused')).toBeTruthy();
   });
 
   it('surfaces a bad amount and asserts nothing about acceptance while it stands', () => {
-    render(<StakePanel market={market} />);
+    render(<StakePanel market={market} action={stub} />);
     fireEvent.change(amountField(), { target: { value: '1.0000005' } });
     expect(screen.getByText(/6 decimal places/)).toBeTruthy();
     expect(screen.queryByText('If you entered now')).toBeNull();
+  });
+
+  it('warns that the estimate is conditional on the block, not a quote', () => {
+    render(<StakePanel market={market} action={stub} />);
+    fireEvent.change(amountField(), { target: { value: '10' } });
+    // Co-entrants in the same block ration against each other, so a quote is
+    // exactly what this cannot be. Saying so is not optional.
+    expect(screen.getByText(/An estimate, not a quote/)).toBeTruthy();
+    expect(screen.getByText(/same block/)).toBeTruthy();
   });
 
   it('renders the action slot only once there is an amount to act on', () => {

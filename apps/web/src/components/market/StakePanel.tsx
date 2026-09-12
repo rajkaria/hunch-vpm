@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 
+import { EntryFlow } from '@/components/market/EntryFlow';
 import { Amount, Badge, Panel, PanelHeader } from '@/components/ui/primitives';
 import type { MarketDetail, OutcomeTone } from '@/lib/data/types';
 import { formatAmount, parseUsdcAmount } from '@/lib/units';
@@ -39,9 +40,12 @@ export function StakePanel({
 }: {
   market: MarketDetail;
   /**
-   * What to render under the estimate — the signing flow, or whatever stands
-   * in for it. Kept out of this component so the estimate itself works with no
-   * wallet, no contracts and no network.
+   * Override what renders under the estimate. Defaults to the signing flow.
+   *
+   * This exists so the estimate can be tested without mounting a wallet
+   * provider — it is **not** a seam for the page to use: the market page is a
+   * server component, and a function prop cannot cross that boundary. It passes
+   * nothing and gets `EntryFlow`.
    */
   action?: (entry: { outcome: number; offered: bigint; acceptance: Acceptance }) => React.ReactNode;
 }) {
@@ -152,8 +156,14 @@ export function StakePanel({
           </p>
         )}
 
-        {action === undefined || offered <= 0n || closed ? null : (
-          <div className="border-t border-edge pt-5">{action({ outcome, offered, acceptance })}</div>
+        {offered <= 0n || closed ? null : (
+          <div className="border-t border-edge pt-5">
+            {action === undefined ? (
+              <EntryFlow market={market} outcome={outcome} offered={offered} acceptance={acceptance} />
+            ) : (
+              action({ outcome, offered, acceptance })
+            )}
+          </div>
         )}
       </div>
     </Panel>
@@ -215,8 +225,14 @@ export function AcceptanceEstimate({
         </div>
       </dl>
 
+      <p className="mt-4 border-t border-edge pt-3.5 text-xs leading-relaxed text-faint">
+        An estimate, not a quote. Entries landing in the same block are rationed together when
+        that block&rsquo;s vintage closes, so someone else arriving alongside you takes room you
+        were counting on.
+      </p>
+
       {partial ? (
-        <p className="mt-4 border-t border-edge pt-3.5 text-xs leading-relaxed text-muted">
+        <p className="mt-3 text-xs leading-relaxed text-muted">
           {bindingLabel === null ? (
             <>There is no opposing book to cover this stake, so none of it can be accepted.</>
           ) : (

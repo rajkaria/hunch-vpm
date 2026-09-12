@@ -119,12 +119,46 @@ except the odds; here it has to reason about headroom and about what has already
 > **Fill in before submitting:** the exact ETHOnline prize-track names this is entered under.
 > The table above states what is integrated; it deliberately does not guess at track titles.
 
+## The venue
+
+The surface is not a viewer. A person can connect a wallet, be prompted onto Arc, approve
+USDC, enter a market, see exactly what the books took and what they refused, watch the vintage
+close, and pull what they are owed — and a keeper settles frozen markets on a cron so the
+venue does not depend on anyone remembering to.
+
+Two parts of that are worth a judge's attention because no other prediction-market UI has to
+solve them.
+
+**The acceptance estimate comes before the signature.** This mechanism partially accepts
+stake: you offer 1,000 and 340 is taken, because the opposing books had room for 340. Every
+DEX interface that could be copied assumes fills are total, so there is no pattern to borrow.
+The stake panel answers it before a wallet is involved — accepted, refused, and *which book
+bound it* — with accepted and refused given equal weight and the refusal never styled as a
+warning. A refund the user learns about afterwards reads as a bug; the same refund disclosed
+beforehand reads as the rule working.
+
+**The entry has three states, because the contract does.** `enter` buffers: it pushes the
+position with `accepted = 0`, pulls the full amount, and emits `Entered` carrying **`offered`,
+never `accepted`**. Rationing happens in `_finalizeVintage`, on the first call to touch the
+market in a *later* block. So the surface never claims an acceptance it cannot know — between
+entering and the vintage closing it says the stake is in, the books have not ruled, and offers
+"Close the vintage", because `finalizeVintage` is callable by anyone and a vintage nobody
+closes is a position nobody can claim. The estimate carries its real caveat: co-entrants in
+the same block ration against each other, so it is an estimate and not a quote.
+
+Wallet connection is a plain **Connect Wallet** — injected plus WalletConnect, no embedded
+wallet provider. Arc is defined with **USDC as the native gas token at six decimals**, and the
+chain is offered for adding because `5042002` ships in no wallet; `ready` and `wrong chain`
+are separate states throughout, since arriving connected-but-elsewhere is the likely path.
+
 ## What is live right now
 
 **<https://hunch-vpm.vercel.app>** — the market surface, in production, public.
 
 It serves a **replayed fixture dataset**, and it says so in a banner on every page, because no
-contract is deployed. Every book on it is replayed through the settler's own rules, so the
+contract is deployed. The transactional surface is complete and gated on deployment: every
+control that would send a transaction says the settler is not deployed yet rather than
+pretending otherwise. Every book on it is replayed through the settler's own rules, so the
 arithmetic is real even though the markets are not. Addresses that are not real render as
 `0x0000…0000` with a **not deployed** badge rather than linking into an explorer that has
 nothing to show.
@@ -147,11 +181,17 @@ A submission that hides this is worse than one that says it.
    nothing to connect to until it is resolved.
 4. **The agent has never run live.** Dry-run is its default and the only mode that works
    today. The full research → decide → enter → monitor → claim loop is exercised against
-   fixtures.
-5. **Selfie Check is not implemented.** The AgentKit verifier is wired and tested against
+   fixtures. The keeper is the same: dry run unless `--live`, and `--live` without a key is
+   refused rather than silently downgraded.
+5. **Positions are not read per address from the live index.** The portfolio works on
+   fixtures. `@hunch-vpm/client` has no positions-by-owner read, and writing that query
+   against a subgraph nobody has deployed would be untested speculation in the data path. The
+   subgraph already indexes `Position` with an owner, so the fix is a client read and one
+   call — not a schema change.
+6. **Selfie Check is not implemented.** The AgentKit verifier is wired and tested against
    fixtures; the canonical AgentBook address is a placeholder, and the viem-backed verifier
    refuses to start when handed it rather than pretending.
-6. **`vpm.playhunch.xyz` does not resolve.** It is the name reserved for this surface, not a
+7. **`vpm.playhunch.xyz` does not resolve.** It is the name reserved for this surface, not a
    name that answers. The apex `playhunch.xyz` resolves because it is the parent product.
 
 ## Provenance

@@ -352,6 +352,10 @@ fixture dataset and every page renders, which is the right default while nothing
 | `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` | Unset or empty: fixtures. Set: the live source |
 | `NEXT_PUBLIC_HUNCH_MARKET_IDS` | Comma-separated subgraph ids (`<settler>-<index>`) the board lists. This is also the complete set of `/m/<id>` routes, because the market page sets `dynamicParams = false` |
 | `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL` | Optional. Without it, reputation reads are unavailable and `/agents` says so rather than showing zeros |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional. Unset: browser wallets only, and the connect menu says so. It is public by design but it is yours, so there is no default |
+| `NEXT_PUBLIC_ARC_NETWORK` | `mainnet` to transact on Arc mainnet. Anything else, including unset, is testnet — so a misconfigured build cannot sign against mainnet |
+| `NEXT_PUBLIC_ARC_TESTNET_RPC_URL`, `NEXT_PUBLIC_ARC_RPC_URL` | Optional overrides for the public endpoints. A URL, not a secret — unless your provider embeds a key in it, in which case it does not belong in a `NEXT_PUBLIC_` variable at all |
+| `NEXT_PUBLIC_ARC_FAUCET_URL` | Where an empty wallet is sent for testnet USDC. No default: a faucet link that 404s teaches a visitor the site is broken. Unset, the empty-balance state says so instead of inventing a destination |
 
 **The `NEXT_PUBLIC_` prefix means Next inlines the value wherever it is referenced from client
 code.** Today these are read only from a server module, but treat them as public: put the

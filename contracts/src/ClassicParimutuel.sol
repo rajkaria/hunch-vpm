@@ -304,7 +304,7 @@ contract ClassicParimutuel is IParimutuelSettler {
     function previewPayout(uint256 positionId) external view returns (uint256) {
         Position storage p = positions[positionId];
         Market storage m = markets[p.marketId];
-        if (m.status != Status.Resolved || p.outcome != m.winner) return 0;
+        if (m.status != Status.Resolved) return 0;
         return _payout(m, p);
     }
 
@@ -362,10 +362,14 @@ contract ClassicParimutuel is IParimutuelSettler {
 
     // ------------------------------------------------------------------ internals
 
-    /// @dev `floor(pool * stake / winningPrincipal)`, the live product's rule exactly.
+    /// @dev `floor(pool * stake / winningPrincipal)`, the live product's rule exactly, and
+    ///      zero for anything not on the winning side. The losing-side guard lives here
+    ///      rather than in the callers so `claim` and `previewPayout` cannot drift apart —
+    ///      they did, and the conservation fuzz caught it paying losers out of the pool.
     ///      Flooring per position is what guarantees the distributed total never exceeds
     ///      the pool; the sub-unit remainder is the residue.
     function _payout(Market storage m, Position storage p) internal view returns (uint256) {
+        if (p.outcome != m.winner) return 0;
         uint256 winningPrincipal = m.books[m.winner].principal;
         if (winningPrincipal == 0) return 0;
         return (m.acceptedPool * uint256(p.accepted)) / winningPrincipal;

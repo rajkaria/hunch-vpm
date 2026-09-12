@@ -115,6 +115,24 @@ Arc testnet is chain id `5042002`. USDC is the native gas token at
 `0x3600000000000000000000000000000000000000`, 6 decimals through the ERC-20 interface, so the
 deployer needs testnet USDC for gas.
 
+### Check before you spend anything
+
+```sh
+bash scripts/preflight-deploy.sh <keystore-account> testnet
+```
+
+Read-only, and it refuses rather than warns. It checks the things that cost real
+money to get wrong: that the keystore account exists, that the RPC actually
+answers **and is chain 5042002 and not something else**, that the deployer holds
+USDC (the gas token, at six decimals — the easiest number on this chain to
+misread), that `ORACLE_KIND` is not a typo silently falling through to Stork,
+and that Stork's contract is really deployed at the address the script would
+wrap. On a clean pass it prints the exact deploy command, with `--verify` only
+if `ARCSCAN_API_KEY` is set.
+
+Run it for mainnet with `mainnet` as the second argument; it then wants chain
+5042 and `ARC_MAINNET_RPC_URL`.
+
 `contracts/foundry.toml` already names the endpoints and the verifier:
 
 ```toml

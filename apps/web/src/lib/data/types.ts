@@ -205,6 +205,12 @@ export interface ClaimableItem {
   settler: string;
 }
 
+/** One position, with just enough of its market to be read on its own. */
+export interface PortfolioEntry {
+  market: MarketSummary;
+  position: PositionView;
+}
+
 export interface ClaimableView {
   wallet: string;
   totals: ClaimBreakdown & { total: bigint };
@@ -229,6 +235,16 @@ export interface DataSource {
   getMarket(id: string): Promise<MarketDetail | null>;
   listAgents(): Promise<AgentRow[]>;
   getClaimable(wallet: string): Promise<ClaimableView>;
+  /**
+   * Every position an address holds, across every market, newest first.
+   *
+   * Separate from `getClaimable` because the two answer different questions:
+   * claimable is what can be *pulled right now*, and most of a portfolio is
+   * open stake that cannot. A holder with three live positions and nothing
+   * settled would otherwise see an empty page and conclude their money had
+   * vanished.
+   */
+  getPositions(wallet: string): Promise<PortfolioEntry[]>;
   /**
    * The wallet the surface is reading for. `null` when nothing is connected,
    * which every page has to render properly rather than treat as an error.

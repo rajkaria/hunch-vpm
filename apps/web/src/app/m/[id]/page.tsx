@@ -6,8 +6,9 @@ import { BookTable } from '@/components/market/BookTable';
 import { ContractsPanel } from '@/components/market/ContractsPanel';
 import { Countdown } from '@/components/market/Countdown';
 import { HeadroomBar } from '@/components/market/HeadroomBar';
-import { PositionPanel } from '@/components/market/PositionPanel';
+import { PositionGate } from '@/components/market/PositionGate';
 import { ResolutionPanel } from '@/components/market/ResolutionPanel';
+import { StakePanel } from '@/components/market/StakePanel';
 import { RuleComparator, type WireBook, type WirePosition } from '@/components/market/RuleComparator';
 import { SettlerBadge, StatusBadge } from '@/components/market/StatusBadge';
 import { VestingCurve, type CurveSeries } from '@/components/market/VestingCurve';
@@ -41,11 +42,35 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const market = await dataSource.getMarket(id);
   if (market === null) return { title: 'Market not found' };
+
+  const description = `${market.subject} · ${formatAmount(market.acceptedPool)} USDC of accepted principal, settled under the ${
+    market.settlerKind === 'vested' ? 'vested' : 'classic pool'
+  } rule on Arc.`;
+
+  /*
+   * OpenGraph is overridden per market, not left to inherit the root.
+   *
+   * Without this a shared market link previews as "Hunch VPM — the vested
+   * parimutuel" whatever market it points at, so three links to three different
+   * questions are indistinguishable in a chat window — which is where most of
+   * them get shared. The image is still the site card; a per-market image would
+   * need a generated OG route and is noted in REPORT.md.
+   */
   return {
     title: market.question,
-    description: `${market.subject} · ${formatAmount(market.acceptedPool)} USDC of accepted principal, settled under the ${
-      market.settlerKind === 'vested' ? 'vested' : 'classic pool'
-    } rule on Arc.`,
+    description,
+    openGraph: {
+      type: 'website',
+      siteName: 'Hunch VPM',
+      title: market.question,
+      description,
+      url: `/m/${market.id}`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: market.question,
+      description,
+    },
   };
 }
 
@@ -219,9 +244,16 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
         </div>
 
         <div className="min-w-0 space-y-6">
+          {/*
+            The stake panel leads the sidebar: it is the thing a reader came to
+            do, and the acceptance estimate inside it is the one number that has
+            to be seen before anything is signed.
+          */}
+          <StakePanel market={market} />
+
           <Panel>
             <PanelHeader title="Your position" />
-            <PositionPanel market={market} />
+            <PositionGate market={market} />
           </Panel>
 
           <Panel>

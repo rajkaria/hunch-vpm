@@ -8,7 +8,8 @@
  */
 
 import { buildFixtures, FIXTURE_WALLET } from './fixtures';
-import type { AgentRow, ClaimableView, DataSource, MarketDetail, MarketSummary } from './types';
+import type {
+  PortfolioEntry, AgentRow, ClaimableView, DataSource, MarketDetail, MarketSummary } from './types';
 
 export interface FixtureSourceOptions {
   /**
@@ -54,6 +55,17 @@ export function createFixtureSource(options: FixtureSourceOptions = {}): DataSou
         };
       }
       return data.claimable;
+    },
+
+    async getPositions(forWallet: string): Promise<PortfolioEntry[]> {
+      const data = buildFixtures(at());
+      // The fixture set is built for one wallet. Anyone else holds nothing —
+      // which is the honest answer, not an empty-because-broken one.
+      if (forWallet.toLowerCase() !== data.wallet.toLowerCase()) return [];
+
+      return data.markets
+        .flatMap((market) => market.positions.map((position) => ({ market, position })))
+        .sort((a, b) => Number(b.position.enteredAt - a.position.enteredAt));
     },
 
     currentWallet(): string | null {

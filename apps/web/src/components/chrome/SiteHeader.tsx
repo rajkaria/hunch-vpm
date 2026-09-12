@@ -3,10 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { ConnectWallet } from '@/components/wallet/ConnectWallet';
 import { ARC_TESTNET } from '@/lib/chain';
 
 const LINKS = [
   { href: '/', label: 'Markets' },
+  { href: '/portfolio', label: 'Portfolio' },
   { href: '/agents', label: 'Agents' },
   { href: '/claim', label: 'Claim' },
   { href: '/docs', label: 'How it works' },
@@ -37,7 +39,7 @@ export function SiteHeader() {
             clear space the guidelines ask for.
           */}
           <img src="/brand/hunch-lockup.svg" alt="Hunch" width={113} height={24} className="h-6 w-auto" />
-          <span className="rounded-tag border border-lime/30 bg-lime/10 px-2 py-1 text-[10px] leading-none font-semibold tracking-[0.12em] text-lime uppercase">
+          <span className="hidden rounded-tag border border-lime/30 bg-lime/10 px-2 py-1 text-[10px] leading-none font-semibold tracking-[0.12em] text-lime uppercase sm:inline-block">
             VPM
           </span>
         </Link>
@@ -63,12 +65,14 @@ export function SiteHeader() {
         </nav>
 
         <span
-          className="num hidden shrink-0 items-center gap-2 rounded-pill border border-edge bg-ghost px-3 py-1.5 text-[11px] text-muted sm:flex"
+          className="num hidden shrink-0 items-center gap-2 rounded-pill border border-edge bg-ghost px-3 py-1.5 text-[11px] text-muted lg:flex"
           title={`Chain id ${ARC_TESTNET.id}`}
         >
           <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-lime shadow-[0_0_0_3px_rgba(200,240,79,0.15)]" />
           {ARC_TESTNET.name}
         </span>
+
+        <ConnectWallet />
       </div>
     </header>
   );

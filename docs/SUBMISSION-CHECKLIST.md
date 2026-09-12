@@ -16,6 +16,11 @@ operator has. **[either]** is mechanical once its blocker clears.
 - [x] Market surface deployed to production — <https://hunch-vpm.vercel.app>
 - [x] Vercel project connected to the repository; a push to `main` redeploys
 - [x] Submission write-up drafted
+- [x] **The venue is built.** Connect Wallet (no Privy), Arc add/switch, approve + enter with
+      the acceptance estimate shown before signing, the three-state entry flow the contract
+      actually has, address-driven claims, a portfolio, a resolver keeper, and the four
+      degraded states. 181 web + 211 agent tests. It is gated on deployment, not on code —
+      see `.ocean/REPORT.md`
 
 ---
 

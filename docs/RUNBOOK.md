@@ -17,6 +17,7 @@ step below that needs a real address says which file to put it in.
 - [Deploying the web surface](#deploying-the-web-surface)
 - [Opening a market](#opening-a-market)
 - [Resolving a market](#resolving-a-market)
+- [The keeper](#the-keeper)
 - [When the feed goes stale](#when-the-feed-goes-stale)
 - [Substreams](#substreams)
 - [Secrets](#secrets)
@@ -351,6 +352,10 @@ fixture dataset and every page renders, which is the right default while nothing
 | `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` | Unset or empty: fixtures. Set: the live source |
 | `NEXT_PUBLIC_HUNCH_MARKET_IDS` | Comma-separated subgraph ids (`<settler>-<index>`) the board lists. This is also the complete set of `/m/<id>` routes, because the market page sets `dynamicParams = false` |
 | `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL` | Optional. Without it, reputation reads are unavailable and `/agents` says so rather than showing zeros |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional. Unset: browser wallets only, and the connect menu says so. It is public by design but it is yours, so there is no default |
+| `NEXT_PUBLIC_ARC_NETWORK` | `mainnet` to transact on Arc mainnet. Anything else, including unset, is testnet — so a misconfigured build cannot sign against mainnet |
+| `NEXT_PUBLIC_ARC_TESTNET_RPC_URL`, `NEXT_PUBLIC_ARC_RPC_URL` | Optional overrides for the public endpoints. A URL, not a secret — unless your provider embeds a key in it, in which case it does not belong in a `NEXT_PUBLIC_` variable at all |
+| `NEXT_PUBLIC_ARC_FAUCET_URL` | Where an empty wallet is sent for testnet USDC. No default: a faucet link that 404s teaches a visitor the site is broken. Unset, the empty-balance state says so instead of inventing a destination |
 
 **The `NEXT_PUBLIC_` prefix means Next inlines the value wherever it is referenced from client
 code.** Today these are read only from a server module, but treat them as public: put the
@@ -475,6 +480,70 @@ Reverts you will actually see:
 | `AlreadySettled()` | this spec has already resolved or voided |
 | `UnknownSpec()` | wrong `specId`, or the spec was never registered |
 | `NotStale()` | from `resolve`, the reading is **older** than `maxStaleness`. See below |
+
+## The keeper
+
+`resolve` is callable by anyone and earns the caller nothing, which is the point
+— and also the problem: **if nobody calls it, nothing ever settles.** A venue
+needs a process that does.
+
+`hunch-keeper` is that process. It reads every spec it is given, and for each one
+resolves it if the feed says it is ready. One pass per invocation, so it runs
+under cron rather than as a daemon holding a key.
+
+```sh
+pnpm --filter @hunch-vpm/agent build
+
+ARC_RPC_URL=... FEED_RESOLVER=0x... KEEPER_SPEC_IDS=0x...,0x... \
+  node agent/dist/keeper/main.js
+```
+
+That is a **dry run**, which is the default: it decides and reports, and sends
+nothing. A misconfigured keeper should be inert rather than wrong. To actually
+send, add `--live` and a key:
+
+```sh
+ARC_RPC_URL=... FEED_RESOLVER=0x... KEEPER_SPEC_IDS=0x... \
+KEEPER_PRIVATE_KEY=0x... node agent/dist/keeper/main.js --live
+```
+
+The keeper needs **no privilege of any kind**. Anyone may call `resolve`, the
+caller has no influence on the answer, and it earns nothing for the call — the
+key pays for gas and nothing else. Use a key that is not the deployer's, so the
+demo can show that the caller is unrelated to whoever opened the market. Running
+live without a key is refused rather than silently downgraded to a dry run: an
+operator who believes markets are being settled when nothing is being sent is
+worse off than one who gets an error.
+
+### It does not void by default, and that is deliberate
+
+`--allow-void` is off unless you pass it. `resolve` reverts rather than voids on
+a stale reading precisely so that a keeper retrying through a brief provider
+outage cannot destroy a market that still had a good answer coming. A keeper that
+voids on its own initiative hands that protection straight back.
+
+Voiding is an operator's judgement that a feed is *not coming back*. When you
+have made it:
+
+```sh
+... node agent/dist/keeper/main.js --live --allow-void --void-after 3600
+```
+
+`--void-after` is a second belt: extra seconds past the spec's own bound before a
+void is even considered, because `age > maxStaleness` is true the instant a feed
+misses a single publish, which is not evidence that it is gone.
+
+### Under cron
+
+```
+*/5 * * * * cd /srv/hunch-vpm && ARC_RPC_URL=... FEED_RESOLVER=0x... \
+  KEEPER_SPEC_IDS=0x... KEEPER_PRIVATE_KEY=0x... \
+  node agent/dist/keeper/main.js --live >> /var/log/hunch-keeper.log 2>&1
+```
+
+It exits non-zero only when a call was attempted and reverted, so cron's own
+mail-on-failure is a usable alert. A spec that is simply not ready is not a
+failure and does not page anyone.
 
 ## When the feed goes stale
 

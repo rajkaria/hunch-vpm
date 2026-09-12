@@ -19,7 +19,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
   }, [error]);
 
   return (
-    <div className="border border-coral/40 bg-raised px-5 py-8">
+    <div className="lift rounded-card border border-coral/40 bg-raised px-5 py-8">
       <h1 className="font-display text-xl text-coral">This page could not be read.</h1>
       <p className="mt-3 max-w-prose text-sm leading-relaxed text-muted">
         The data source did not answer. Nothing has been sent and no position has changed — every page here
@@ -32,7 +32,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
       <button
         type="button"
         onClick={reset}
-        className="mt-5 border border-lime px-4 py-2.5 text-sm font-semibold text-lime transition-colors hover:bg-lime hover:text-ink"
+        className="mt-5 rounded-control border border-lime px-4 py-2.5 text-sm font-semibold text-lime transition-colors hover:bg-lime hover:text-ink"
       >
         Try again
       </button>

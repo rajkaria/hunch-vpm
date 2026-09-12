@@ -71,8 +71,9 @@ export function clientFactoryConfig(config: ServerConfig): ClientFactoryConfig {
     chain: {
       id: config.chainId,
       name: config.chainName,
-      // USDC is the native gas token on Arc and reports 6 decimals as an ERC-20.
-      nativeCurrency: { name: "USD Coin", symbol: "USDC", decimals: 6 },
+      // USDC is the native gas token on Arc: 18 decimals natively (this field),
+      // 6 through the ERC-20 interface that every amount here actually uses.
+      nativeCurrency: { name: "USD Coin", symbol: "USDC", decimals: 18 },
       rpcUrls: { default: { http: config.rpcUrl === undefined ? [] : [config.rpcUrl] } },
       ...(config.explorerUrl === undefined
         ? {}

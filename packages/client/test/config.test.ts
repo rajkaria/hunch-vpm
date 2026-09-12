@@ -78,15 +78,20 @@ describe('chains', () => {
   it('records the verified Arc identifiers', () => {
     expect(arcTestnet.id).toBe(5042002);
     expect(arcMainnet.id).toBe(5042);
-    expect(arcTestnet.rpcUrls.default.http[0]).toBe('https://rpc.testnet.arc.network');
+    // Circle's docs name rpc.testnet.arc.io as the primary endpoint now. The older
+    // rpc.testnet.arc.network still answers chain 5042002; .io is the documented one.
+    expect(arcTestnet.rpcUrls.default.http[0]).toBe('https://rpc.testnet.arc.io');
     expect(arcTestnet.blockExplorers?.default.url).toBe('https://testnet.arcscan.app');
     expect(GRAPH_NETWORK_SLUG[arcTestnet.id]).toBe('arc-testnet');
     expect(GRAPH_NETWORK_SLUG[arcMainnet.id]).toBe('arc');
     expect(CAIP2[arcTestnet.id]).toBe('eip155:5042002');
   });
 
-  it('denominates in USDC, which is the gas token', () => {
+  it('denominates in USDC, which is the gas token, at its NATIVE 18 decimals', () => {
+    // Two views of one balance: 18 natively, 6 through the ERC-20 interface.
+    // nativeCurrency is the native view; amounts use USDC_DECIMALS (6).
     expect(arcTestnet.nativeCurrency.symbol).toBe('USDC');
-    expect(arcTestnet.nativeCurrency.decimals).toBe(6);
+    expect(arcTestnet.nativeCurrency.decimals).toBe(18);
+    expect(arcMainnet.nativeCurrency.decimals).toBe(18);
   });
 });

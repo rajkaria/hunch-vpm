@@ -115,7 +115,8 @@ export async function runKeeperCli(
       chain: {
         id: chainId,
         name: 'Arc',
-        nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 6 },
+        // Native view of USDC, which is what gas is paid in: 18 decimals.
+        nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 18 },
         rpcUrls: { default: { http: [rpcUrl] } },
       } as never,
     });

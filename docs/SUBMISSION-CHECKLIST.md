@@ -110,7 +110,8 @@ What is needed from you:
   so the deployer needs testnet USDC. Create it with `cast wallet import <name> --interactive`.
   Never `--private-key` on a command line — it lands in your shell history.
 - **`ARC_TESTNET_RPC_URL`** in the environment.
-- **`ARCSCAN_API_KEY`**, if you want `--verify` to run during the deploy rather than after.
+- **No explorer API key.** Arcscan is Blockscout: verification needs only `--verifier blockscout
+  --verifier-url https://testnet.arcscan.app/api/`, which the preflight prints for you.
 
 Then:
 

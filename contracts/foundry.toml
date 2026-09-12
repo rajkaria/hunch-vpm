@@ -33,8 +33,12 @@ runs = 2048
 arc_testnet = "${ARC_TESTNET_RPC_URL}"
 arc_mainnet = "${ARC_MAINNET_RPC_URL}"
 
-[etherscan]
-arc_testnet = { key = "${ARCSCAN_API_KEY}", url = "https://testnet.arcscan.app/api", chain = 5042002 }
+# No [etherscan] entry for Arc, on purpose. Arcscan is a Blockscout instance:
+# verification needs `--verifier blockscout --verifier-url https://testnet.arcscan.app/api/`
+# and NO API key (docs.arc.io, "Deploy on Arc"). The old entry here demanded an
+# ARCSCAN_API_KEY that does not exist, and the preflight only passed --verify when
+# it was set — so verification would have been skipped silently on every deploy.
+# The verifier flags go on the command line; scripts/preflight-deploy.sh prints them.
 
 # The vendored reference implementation and its suite must stay byte-for-byte
 # identical to what was published with the paper — the formatter never touches them.

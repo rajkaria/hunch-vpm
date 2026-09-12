@@ -77,7 +77,7 @@ still on the error object as `.url` for debugging.
 
 ### Chain and address defaults
 
-Arc testnet (`chainId 5042002`, RPC `https://rpc.testnet.arc.network`, explorer
+Arc testnet (`chainId 5042002`, RPC `https://rpc.testnet.arc.io`, explorer
 `https://testnet.arcscan.app`) is the default chain. USDC is Arc's **native gas token**, exposed
 behind the ERC-20 interface at `0x3600000000000000000000000000000000000000` with 6 decimals.
 

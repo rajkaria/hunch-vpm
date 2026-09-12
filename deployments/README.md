@@ -19,7 +19,7 @@ forge script contracts/script/Deploy.s.sol \
   --rpc-url arc_testnet \
   --account <keystore-account> \
   --broadcast \
-  --verify \
+  --verify --verifier blockscout --verifier-url https://testnet.arcscan.app/api/ \
   | tee deploy.log
 ```
 

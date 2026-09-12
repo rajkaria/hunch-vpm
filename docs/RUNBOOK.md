@@ -124,11 +124,12 @@ bash scripts/preflight-deploy.sh <keystore-account> testnet
 Read-only, and it refuses rather than warns. It checks the things that cost real
 money to get wrong: that the keystore account exists, that the RPC actually
 answers **and is chain 5042002 and not something else**, that the deployer holds
-USDC (the gas token, at six decimals — the easiest number on this chain to
-misread), that `ORACLE_KIND` is not a typo silently falling through to Stork,
+USDC (the gas token — read at 18 decimals, because `cast balance` is the native
+view, while the ERC-20 view stakes move through is 6; the easiest pair of
+numbers on this chain to misread), that `ORACLE_KIND` is not a typo silently falling through to Stork,
 and that Stork's contract is really deployed at the address the script would
-wrap. On a clean pass it prints the exact deploy command, with `--verify` only
-if `ARCSCAN_API_KEY` is set.
+wrap. On a clean pass it prints the exact deploy command, with Blockscout
+verification flags included (Arcscan needs no API key).
 
 Run it for mainnet with `mainnet` as the second argument; it then wants chain
 5042 and `ARC_MAINNET_RPC_URL`.
@@ -140,11 +141,11 @@ Run it for mainnet with `mainnet` as the second argument; it then wants chain
 arc_testnet = "${ARC_TESTNET_RPC_URL}"
 arc_mainnet = "${ARC_MAINNET_RPC_URL}"
 
-[etherscan]
-arc_testnet = { key = "${ARCSCAN_API_KEY}", url = "https://testnet.arcscan.app/api", chain = 5042002 }
 ```
 
-So set `ARC_TESTNET_RPC_URL` and `ARCSCAN_API_KEY` in the environment, and deploy:
+There is no `[etherscan]` entry, and no API key to find: **Arcscan is a Blockscout instance**,
+so verification takes `--verifier blockscout --verifier-url https://testnet.arcscan.app/api/`
+and nothing else. So set `ARC_TESTNET_RPC_URL` in the environment, and deploy:
 
 ```sh
 ORACLE_KIND=stork \
@@ -153,8 +154,13 @@ forge script contracts/script/Deploy.s.sol \
   --rpc-url arc_testnet \
   --account <keystore-account> \
   --broadcast \
-  --verify
+  --verify --verifier blockscout --verifier-url https://testnet.arcscan.app/api/
 ```
+
+Stock Foundry is enough. Arc's docs use an `arc-forge` fork, but this exact script was
+simulated against live Arc testnet with stock `forge` 1.5.1 (no `--broadcast`): all five
+contracts deploy, ~7.35M gas. Forge prints the estimate as "ETH"; on Arc that figure is
+native USDC at 18 decimals, so the whole deploy costs roughly **0.30 USDC**.
 
 The script path is given **relative to the directory you are standing in**, not to `--root`.
 From the repository root that is `contracts/script/Deploy.s.sol`; `script/Deploy.s.sol` with
@@ -210,7 +216,8 @@ then cut the block out of it:
 ```sh
 ORACLE_KIND=stork \
 forge script contracts/script/Deploy.s.sol \
-  --root contracts --rpc-url arc_testnet --account <keystore-account> --broadcast --verify \
+  --root contracts --rpc-url arc_testnet --account <keystore-account> --broadcast \
+  --verify --verifier blockscout --verifier-url https://testnet.arcscan.app/api/ \
   | tee deploy.log
 
 sed -n '/^  {$/,/^  }$/p' deploy.log | sed 's/^  //' > deployments/arc-testnet.json
@@ -229,7 +236,9 @@ same table.
 If verification did not run or failed, verify after the fact per contract:
 
 ```sh
-forge verify-contract --chain 5042002 --watch <address> src/FeedResolver.sol:FeedResolver
+forge verify-contract --root contracts --chain 5042002 --watch \
+  --verifier blockscout --verifier-url https://testnet.arcscan.app/api/ \
+  <address> src/FeedResolver.sol:FeedResolver
 ```
 
 ## Wiring the addresses through
@@ -677,7 +686,6 @@ Check both before you copy either.
 | Deployer key | Signs `forge script` and any `cast send` | A Foundry keystore (`--account`) or a hardware wallet. Never a file in this repo, never `--private-key` on a command line |
 | Keeper key | Sends `resolve` / `voidStale`. Needs no privilege — anyone may call them — only gas | Same. A separate key from the deployer, so the demo can show that the caller is unrelated |
 | `ARC_TESTNET_RPC_URL`, `ARC_MAINNET_RPC_URL` | Named endpoints in `contracts/foundry.toml` | Shell environment. Secret only if your provider embeds a key in the URL, which many do |
-| `ARCSCAN_API_KEY` | `forge script --verify` and `forge verify-contract` | Shell environment. Read by `[etherscan]` in `contracts/foundry.toml` |
 | Subgraph Studio deploy key | `graph auth`, once per machine | graph-cli's own config, outside this repo. Do not write it into a file here |
 | Graph gateway API key | Querying a published subgraph. Becomes a **path segment** of the URL | Server-side only: `HUNCH_VPM_GRAPH_API_KEY` for the MCP server, `apiKey` in `@hunch-vpm/client`'s config. Never a `NEXT_PUBLIC_*` variable, never a log line |
 | `SUBSTREAMS_API_KEY` | Minting a deploy token via `make token` | Shell environment, for the length of a deploy |

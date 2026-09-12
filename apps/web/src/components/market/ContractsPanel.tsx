@@ -22,7 +22,7 @@ export function ContractsPanel({ market }: { market: MarketDetail }) {
       <Row label="Resolver" hint="FeedResolver — permissionless, reads a price feed">
         <AddressLink address={market.resolver} />
       </Row>
-      <Row label="Settlement asset" hint="USDC, the native gas token on Arc, 6 decimals">
+      <Row label="Settlement asset" hint="USDC, the native gas token on Arc — 6 decimals through ERC-20, 18 natively">
         <AddressLink address={market.token} />
       </Row>
       <Row label="Residue owner" hint="fixed at creation; the only address that can sweep the flooring remainder">

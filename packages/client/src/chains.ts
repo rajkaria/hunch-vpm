@@ -1,17 +1,19 @@
 import { defineChain } from 'viem';
 
 /**
- * Arc's gas token is USDC itself, exposed at a fixed address behind the ERC-20
- * interface where it reports 6 decimals. We record that here as display
- * metadata only: stake never moves as native value in this protocol, it moves
- * through `transferFrom`, so nothing in this package denominates an amount in
- * `nativeCurrency`.
+ * Arc's gas token is USDC itself, with two views of one balance: natively
+ * (gas, `eth_getBalance`) it is 18 decimals, and through the ERC-20 interface
+ * at `0x3600…0000` it is 6. `nativeCurrency` describes the native view, so it
+ * is 18 — verified on Arc testnet, where `balanceOf` and `eth_getBalance` for
+ * one holder differ by exactly 10^12. Stake never moves as native value in this
+ * protocol, it moves through `transferFrom` on the 6-decimal view, so nothing
+ * in this package denominates an amount in `nativeCurrency`.
  */
 export const arcTestnet = defineChain({
   id: 5042002,
   name: 'Arc Testnet',
-  nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 6 },
-  rpcUrls: { default: { http: ['https://rpc.testnet.arc.network'] } },
+  nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 18 },
+  rpcUrls: { default: { http: ['https://rpc.testnet.arc.io'] } },
   blockExplorers: { default: { name: 'Arcscan', url: 'https://testnet.arcscan.app' } },
   testnet: true,
 });
@@ -24,7 +26,7 @@ export const arcTestnet = defineChain({
 export const arcMainnet = defineChain({
   id: 5042,
   name: 'Arc',
-  nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 6 },
+  nativeCurrency: { name: 'USD Coin', symbol: 'USDC', decimals: 18 },
   rpcUrls: { default: { http: [] } },
   testnet: false,
 });

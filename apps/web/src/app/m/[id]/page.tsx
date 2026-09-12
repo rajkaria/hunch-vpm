@@ -8,6 +8,7 @@ import { Countdown } from '@/components/market/Countdown';
 import { HeadroomBar } from '@/components/market/HeadroomBar';
 import { PositionPanel } from '@/components/market/PositionPanel';
 import { ResolutionPanel } from '@/components/market/ResolutionPanel';
+import { StakePanel } from '@/components/market/StakePanel';
 import { RuleComparator, type WireBook, type WirePosition } from '@/components/market/RuleComparator';
 import { SettlerBadge, StatusBadge } from '@/components/market/StatusBadge';
 import { VestingCurve, type CurveSeries } from '@/components/market/VestingCurve';
@@ -219,6 +220,13 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
         </div>
 
         <div className="min-w-0 space-y-6">
+          {/*
+            The stake panel leads the sidebar: it is the thing a reader came to
+            do, and the acceptance estimate inside it is the one number that has
+            to be seen before anything is signed.
+          */}
+          <StakePanel market={market} />
+
           <Panel>
             <PanelHeader title="Your position" />
             <PositionPanel market={market} />

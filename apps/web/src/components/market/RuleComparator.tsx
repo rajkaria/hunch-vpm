@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 
 import { Amount } from '@/components/ui/primitives';
 import type { OutcomeTone } from '@/lib/data/types';
-import { formatAmount, formatMultiple, fromDecimalString, USDC_DECIMALS } from '@/lib/units';
+import { formatAmount, formatMultiple, parseUsdcAmount } from '@/lib/units';
 import {
   newEntryComparison,
   positionComparison,
@@ -484,21 +484,10 @@ interface ParsedAmount {
 }
 
 /**
- * Amounts are parsed, not coerced. An input with more than six decimal places
- * is a mistake worth telling someone about rather than quietly truncating,
- * because the truncation would change what they were about to send.
+ * Amounts are parsed, not coerced — see `parseUsdcAmount`, which is shared with
+ * the stake panel so the two cannot disagree about what a valid amount is.
  */
 function parseAmount(text: string): ParsedAmount {
-  const trimmed = text.trim();
-  if (trimmed === '') return { value: 0n, error: null };
-  try {
-    const value = fromDecimalString(trimmed, USDC_DECIMALS);
-    if (value < 0n) return { value: null, error: 'A stake cannot be negative.' };
-    return { value, error: null };
-  } catch {
-    return {
-      value: null,
-      error: `Enter an amount like 250 or 250.50. USDC has ${USDC_DECIMALS} decimal places.`,
-    };
-  }
+  const { value, problem } = parseUsdcAmount(text);
+  return { value, error: problem };
 }

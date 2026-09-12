@@ -72,6 +72,39 @@ export function fromDecimalString(value: string, decimals: number): bigint {
   return match[1] === '-' ? -scaled : scaled;
 }
 
+export interface ParsedAmount {
+  /** The amount in smallest units, or `null` when the text is not one. */
+  value: bigint | null;
+  /** What to tell the user, or `null` when there is nothing wrong. */
+  problem: string | null;
+}
+
+/**
+ * Parse a typed USDC amount.
+ *
+ * Amounts are parsed, not coerced. An input with more than six decimal places
+ * is a mistake worth telling someone about rather than quietly truncating,
+ * because the truncation would change what they were about to send — and on
+ * this surface what they are about to send is a signed transaction.
+ *
+ * Empty is not an error: it is the initial state of every amount field, and
+ * showing a validation message before anyone has typed is noise.
+ */
+export function parseUsdcAmount(text: string): ParsedAmount {
+  const trimmed = text.trim();
+  if (trimmed === '') return { value: 0n, problem: null };
+  try {
+    const value = fromDecimalString(trimmed, USDC_DECIMALS);
+    if (value < 0n) return { value: null, problem: 'A stake cannot be negative.' };
+    return { value, problem: null };
+  } catch {
+    return {
+      value: null,
+      problem: `Enter an amount like 250 or 250.50. USDC has ${USDC_DECIMALS} decimal places.`,
+    };
+  }
+}
+
 export interface AmountFormat {
   /** Fraction digits to show. Fixed, so columns of numbers line up. Default 2. */
   fractionDigits?: number;

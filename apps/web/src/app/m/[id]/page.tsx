@@ -6,7 +6,7 @@ import { BookTable } from '@/components/market/BookTable';
 import { ContractsPanel } from '@/components/market/ContractsPanel';
 import { Countdown } from '@/components/market/Countdown';
 import { HeadroomBar } from '@/components/market/HeadroomBar';
-import { PositionPanel } from '@/components/market/PositionPanel';
+import { PositionGate } from '@/components/market/PositionGate';
 import { ResolutionPanel } from '@/components/market/ResolutionPanel';
 import { StakePanel } from '@/components/market/StakePanel';
 import { RuleComparator, type WireBook, type WirePosition } from '@/components/market/RuleComparator';
@@ -229,7 +229,7 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
 
           <Panel>
             <PanelHeader title="Your position" />
-            <PositionPanel market={market} />
+            <PositionGate market={market} />
           </Panel>
 
           <Panel>

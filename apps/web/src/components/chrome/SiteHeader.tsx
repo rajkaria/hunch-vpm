@@ -8,6 +8,7 @@ import { ARC_TESTNET } from '@/lib/chain';
 
 const LINKS = [
   { href: '/', label: 'Markets' },
+  { href: '/portfolio', label: 'Portfolio' },
   { href: '/agents', label: 'Agents' },
   { href: '/claim', label: 'Claim' },
   { href: '/docs', label: 'How it works' },

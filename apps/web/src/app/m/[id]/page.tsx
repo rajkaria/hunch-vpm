@@ -42,11 +42,35 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const market = await dataSource.getMarket(id);
   if (market === null) return { title: 'Market not found' };
+
+  const description = `${market.subject} · ${formatAmount(market.acceptedPool)} USDC of accepted principal, settled under the ${
+    market.settlerKind === 'vested' ? 'vested' : 'classic pool'
+  } rule on Arc.`;
+
+  /*
+   * OpenGraph is overridden per market, not left to inherit the root.
+   *
+   * Without this a shared market link previews as "Hunch VPM — the vested
+   * parimutuel" whatever market it points at, so three links to three different
+   * questions are indistinguishable in a chat window — which is where most of
+   * them get shared. The image is still the site card; a per-market image would
+   * need a generated OG route and is noted in REPORT.md.
+   */
   return {
     title: market.question,
-    description: `${market.subject} · ${formatAmount(market.acceptedPool)} USDC of accepted principal, settled under the ${
-      market.settlerKind === 'vested' ? 'vested' : 'classic pool'
-    } rule on Arc.`,
+    description,
+    openGraph: {
+      type: 'website',
+      siteName: 'Hunch VPM',
+      title: market.question,
+      description,
+      url: `/m/${market.id}`,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: market.question,
+      description,
+    },
   };
 }
 

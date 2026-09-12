@@ -25,6 +25,7 @@ import { ARC_TESTNET_ADDRESSES } from '../chain';
 import { formatPrice } from '../units';
 import { formatUtcDate } from '../time';
 import type {
+  PortfolioEntry,
   AgentRow,
   ClaimableView,
   DataSource,
@@ -205,6 +206,25 @@ export function createLiveSource(options: LiveSourceOptions): DataSource {
         blockedResidue: claimable.blockedResidue.map((entry) => ({ ...entry, question: entry.marketId })),
         index: { ...claimable.index, source: 'live' },
       };
+    },
+
+    /**
+     * Positions for one address.
+     *
+     * **Empty here, and that is a stated gap rather than an oversight.**
+     * `toMarketDetail` sets `positions: []` because `@hunch-vpm/client`'s
+     * `marketBook(id)` takes no owner and returns none — there is no
+     * positions-by-owner read in the client at all. Returning [] is the honest
+     * answer; inventing one would mean shipping a subgraph query nothing in
+     * this repo can execute, since neither subgraph is deployed.
+     *
+     * The fix is small and is not a schema change: the subgraph already indexes
+     * Position entities with an owner (that is how `claimable` finds them), so
+     * the client needs a `positions(where: { owner })` read and this method
+     * needs to call it. See .ocean/REPORT.md.
+     */
+    async getPositions(): Promise<PortfolioEntry[]> {
+      return [];
     },
 
     currentWallet(): string | null {

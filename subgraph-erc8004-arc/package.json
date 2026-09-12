@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.2",
+    "assemblyscript": "0.19.23",
     "matchstick-as": "0.6.0",
     "typescript": "^5.7.3",
     "vitest": "^3.0.5",

@@ -65,13 +65,16 @@ if [ -n "$RPC" ] && [ -n "$ACCOUNT" ]; then
   else
     ok "deployer is $ADDR"
     BAL="$(cast balance "$ADDR" --rpc-url "$RPC" 2>/dev/null || echo 0)"
-    # USDC is the native gas token at 6 decimals, not 18. This is the single
-    # easiest thing to misread on this chain.
-    HUMAN="$(cast to-unit "$BAL" 6 2>/dev/null || echo '?')"
+    # `cast balance` is the NATIVE view of USDC, which is 18 decimals. The
+    # ERC-20 view at 0x3600…0000 is 6 decimals — one balance, raw values off by
+    # 10^12. Reading this native figure at 6 would report a balance a trillion
+    # times too large, which is exactly the check most likely to wave through
+    # an empty deployer.
+    HUMAN="$(cast to-unit "$BAL" 18 2>/dev/null || echo '?')"
     if [ "$BAL" = "0" ]; then
       bad "deployer holds NO USDC. It is the gas token here — nothing can be sent"
     else
-      ok "deployer holds $HUMAN USDC (6 decimals, native gas)"
+      ok "deployer holds $HUMAN USDC (native view, 18 decimals)"
     fi
   fi
 fi
@@ -96,10 +99,20 @@ if [ "$KIND" != "chainlink" ] && [ "$KIND" != "mock" ] && [ -n "$RPC" ]; then
 fi
 
 step "Verification"
-if [ -z "${ARCSCAN_API_KEY:-}" ]; then
-  warn "ARCSCAN_API_KEY unset — deploy without --verify, then verify after the fact per contract"
+# Arcscan is Blockscout: no API key, just the verifier and its URL. Testnet's is
+# published; mainnet's explorer is not yet, so mainnet verifies only once
+# ARC_VERIFIER_URL is set to its Blockscout API root.
+if [ "$NETWORK" = "mainnet" ]; then
+  VERIFIER_URL="${ARC_VERIFIER_URL:-}"
 else
-  ok "ARCSCAN_API_KEY is set, --verify can run inline"
+  VERIFIER_URL="${ARC_VERIFIER_URL:-https://testnet.arcscan.app/api/}"
+fi
+if [ -n "$VERIFIER_URL" ]; then
+  ok "will verify inline on Blockscout at $VERIFIER_URL (no API key needed)"
+  VERIFY_FLAGS=" --verify --verifier blockscout --verifier-url $VERIFIER_URL"
+else
+  warn "no Blockscout verifier URL for mainnet yet — set ARC_VERIFIER_URL once the explorer is published, or verify after the fact"
+  VERIFY_FLAGS=""
 fi
 
 step "The tree"
@@ -119,7 +132,7 @@ printf '\n\033[32mREADY.\033[0m The deploy command:\n\n'
 cat <<CMD
   ORACLE_KIND=${KIND} \\
   forge script contracts/script/Deploy.s.sol \\
-    --root contracts --rpc-url ${ALIAS} --account ${ACCOUNT} --broadcast${ARCSCAN_API_KEY:+ --verify} \\
+    --root contracts --rpc-url ${ALIAS} --account ${ACCOUNT} --broadcast${VERIFY_FLAGS} \\
     | tee deploy.log
 
   sed -n '/^  {\$/,/^  }\$/p' deploy.log | sed 's/^  //' > deployments/arc-${NETWORK}.json

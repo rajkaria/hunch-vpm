@@ -7,9 +7,16 @@ import { ARC_MAINNET, ARC_TESTNET, type ChainFacts, type NetworkId } from '@/lib
  *
  * Two facts about this chain drive everything below and are easy to get wrong:
  *
- * 1. **USDC is the native gas token**, at 6 decimals — not 18. A wallet told
- *    otherwise displays every gas estimate off by twelve orders of magnitude,
- *    so `nativeCurrency.decimals` is 6 and that is not a typo.
+ * 1. **USDC is the native gas token, and it has two views of ONE balance.**
+ *    Natively — `eth_getBalance`, `msg.value`, gas — it is **18 decimals**.
+ *    Through the ERC-20 interface at `0x3600…0000` — `balanceOf`, `approve`,
+ *    `transferFrom`, which is how every stake in this protocol moves — it is
+ *    **6 decimals**. Same money, raw values off by exactly 10^12. Verified on
+ *    Arc testnet: one holder reads 3,141,473,534,331 through `balanceOf` and
+ *    3,141,473,534,331,000,000,000,000 through `eth_getBalance`.
+ *    `nativeCurrency` describes the NATIVE view, so it is 18 here; amounts
+ *    the app stakes use `USDC_DECIMALS` (6) in `lib/units.ts`. Declaring 6 here
+ *    — which this file used to — makes a wallet show gas off by 10^12.
  * 2. **Neither chain id ships in any wallet.** 5042002 and 5042 are unknown to
  *    MetaMask and to every other injected provider, so connecting is never
  *    enough on its own — the app has to be able to *add* the chain, which is
@@ -22,15 +29,26 @@ import { ARC_MAINNET, ARC_TESTNET, type ChainFacts, type NetworkId } from '@/lib
  * a `NEXT_PUBLIC_` variable only as a last resort and defaults to the public one.
  */
 
+// Circle's published primary testnet endpoint (docs.arc.io). The older
+// rpc.testnet.arc.network still answers chain 5042002, but .io is the one the
+// docs name now.
 const ARC_TESTNET_RPC =
-  process.env['NEXT_PUBLIC_ARC_TESTNET_RPC_URL'] ?? 'https://rpc.testnet.arc.network';
+  process.env['NEXT_PUBLIC_ARC_TESTNET_RPC_URL'] ?? 'https://rpc.testnet.arc.io';
 
-const ARC_MAINNET_RPC = process.env['NEXT_PUBLIC_ARC_RPC_URL'] ?? 'https://rpc.arc.network';
+/*
+ * No default for mainnet, on purpose. Arc's public mainnet opens 16 September
+ * 2026 and Circle publishes the official RPC then; the value that used to sit
+ * here was a guess nobody had checked. Until NEXT_PUBLIC_ARC_RPC_URL is set,
+ * mainnet can be selected and read about but a wallet cannot be asked to add
+ * it, and the UI says so.
+ */
+export const ARC_MAINNET_RPC = process.env['NEXT_PUBLIC_ARC_RPC_URL'] ?? '';
 
 function nativeUsdc() {
   // Named "USD Coin" rather than "Ether" so a wallet's send screen does not lie
   // about what the user is spending.
-  return { name: 'USD Coin', symbol: 'USDC', decimals: 6 } as const;
+  // 18: this is the NATIVE view of USDC. See the note at the top of the file.
+  return { name: 'USD Coin', symbol: 'USDC', decimals: 18 } as const;
 }
 
 export const arcTestnetChain = defineChain({
@@ -48,7 +66,7 @@ export const arcMainnetChain = defineChain({
   id: ARC_MAINNET.id,
   name: ARC_MAINNET.name,
   nativeCurrency: nativeUsdc(),
-  rpcUrls: { default: { http: [ARC_MAINNET_RPC] } },
+  rpcUrls: { default: { http: ARC_MAINNET_RPC === '' ? [] : [ARC_MAINNET_RPC] } },
   // No mainnet explorer has been verified for this repo, so none is declared
   // rather than guessed — `addressExplorerUrl` suppresses those links already.
   testnet: false,

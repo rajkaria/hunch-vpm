@@ -147,7 +147,8 @@ closes is a position nobody can claim. The estimate carries its real caveat: co-
 the same block ration against each other, so it is an estimate and not a quote.
 
 Wallet connection is a plain **Connect Wallet** — injected plus WalletConnect, no embedded
-wallet provider. Arc is defined with **USDC as the native gas token at six decimals**, and the
+wallet provider. Arc is defined with **USDC as the native gas token — 18 decimals natively, 6 through the
+ERC-20 interface every stake moves through**, and the
 chain is offered for adding because `5042002` ships in no wallet; `ready` and `wrong chain`
 are separate states throughout, since arriving connected-but-elsewhere is the likely path.
 

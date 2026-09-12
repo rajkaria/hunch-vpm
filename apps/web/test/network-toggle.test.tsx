@@ -31,11 +31,12 @@ describe('the network registry', () => {
     expect(CHAINS.mainnet.id).toBe(ARC_MAINNET.id);
   });
 
-  it('keeps USDC as the native gas token at six decimals on BOTH chains', () => {
-    // Wrong on either chain and every gas estimate is out by twelve orders.
+  it('declares native USDC at 18 decimals on BOTH chains', () => {
+    // Native view is 18; the ERC-20 view stakes move through is 6. Wrong on
+    // either chain and every gas estimate is out by twelve orders.
     for (const chain of [CHAINS.testnet, CHAINS.mainnet]) {
       expect(chain.nativeCurrency.symbol).toBe('USDC');
-      expect(chain.nativeCurrency.decimals).toBe(6);
+      expect(chain.nativeCurrency.decimals).toBe(18);
     }
   });
 

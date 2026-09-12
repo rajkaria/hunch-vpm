@@ -8,101 +8,90 @@ globs:
   - apps/web/src/components/claim/**
   - apps/web/src/components/portfolio/**
   - apps/web/src/app/api/**
-updated: 2026-09-12
+  - packages/client/src/chains.ts
+  - packages/mcp/src/client-loader.ts
+updated: 2026-09-13
 ---
 
 # The market surface, as a venue
 
-Covers `apps/web` — the wallet layer, the staking flow, claims, the portfolio, and the
-design system they are all built on.
+Covers `apps/web` — wallet layer and network toggle, staking and the acceptance estimate,
+claims, portfolio, design system.
 
 ## Current state — what's working, deployed, broken
 
-**Live:** <https://hunch-vpm.vercel.app>, production, public. Vercel project `hunch-vpm` is
-connected to the GitHub repo, so a push to `main` redeploys it.
+**Live:** <https://hunch-vpm.vercel.app> (Vercel `hunch-vpm`, auto-deploys from `main`). Merged
+so far: the full venue plus the runtime network toggle (PR #8).
 
-**Working.** A person can connect a wallet, be prompted onto Arc, see what the books would
-accept of an offer before signing, approve USDC, enter, watch the vintage close, and pull
-what they are owed. 181 web tests. `pnpm verify` green.
+**Working (merged):** connect wallet → onto Arc → acceptance estimate before signing → approve →
+enter → close vintage → claim; portfolio; **testnet/mainnet toggle** (sticky, never inferred from
+the wallet); **WalletConnect** using main Hunch's public project id; **non-dismissible
+"not audited" notice on mainnet only**. Browser-verified on both networks, no console errors.
 
-**Serving fixtures.** No contract is deployed, so every transactional control is gated on
-`isDeployed()` and says "the settler is not deployed yet" rather than pretending. The whole
-transactional path is therefore **untested against a real chain** — the largest untested
-surface in the app.
+**Also merged:** native `nativeCurrency.decimals` 6 → **18** in
+`lib/wallet/chains.ts` (and client/mcp), testnet RPC default → `https://rpc.testnet.arc.io`,
+**mainnet RPC default removed** (was an unverified guess — now `NEXT_PUBLIC_ARC_RPC_URL` or
+empty), tests updated. Stake amounts correctly stay on the 6-decimal ERC-20 unit
+(`USDC_DECIMALS`).
+
+**Serving fixtures on both networks.** Nothing deployed; transactional controls gated on
+`isDeployed()`. The transactional path is **untested against a real chain**.
 
 **Broken / absent:**
-- **Live per-address positions return nothing.** `createLiveSource.toMarketDetail` sets
-  `positions: []` and always has: `@hunch-vpm/client`'s `marketBook(id)` takes no owner and
-  there is no positions-by-owner read in the client at all. The portfolio works on fixtures
-  and says so. Fix is **not** a schema change — the subgraph already indexes `Position` with
-  an owner (that is how `claimable` finds them), so it needs a `positions(where: { owner })`
-  read in the client plus one call in `live.ts`. `test/portfolio.test.ts` pins the current
-  behaviour so it fails loudly when the read lands.
-- Market page "Your position" shows the **sample wallet** on fixtures, and says so.
-- No per-market OG *image* (per-market OG title/description do work).
-- No rate limiting on `/api/claimable` or `/api/positions`.
+- **Data layer is single-network.** The toggle switches the chain and addresses you transact
+  with, but the board reads one subgraph (`NEXT_PUBLIC_HUNCH_SUBGRAPH_URL`). For real
+  dual-network use, `lib/data` + both API routes need a per-network subgraph URL and a
+  `network` parameter. Not built.
+- **Live per-address positions return nothing** — client has no `positions(where:{owner})`
+  read. Fix is a client read + one call in `live.ts`; `test/portfolio.test.ts` pins it.
+- **Mainnet cannot add-to-wallet** until `NEXT_PUBLIC_ARC_RPC_URL` is set (no published RPC).
+  Mainnet explorer links suppressed until `NEXT_PUBLIC_ARC_EXPLORER_URL` is set.
+- `ARC_MAINNET_ADDRESSES` all placeholders (ours, ERC-8004, Stork).
+- Server-rendered displays (footer, ContractsPanel network row, /agents registry links) still
+  read testnet facts regardless of the toggle.
+- No per-market OG image; no rate limiting on `/api/claimable`, `/api/positions`.
 
 ## Recent changes — files touched and why
 
-**Wallet layer (new).** `src/lib/wallet/chains.ts` (Arc as viem chains; USDC native gas at
-**6** decimals, not 18), `config.ts` (wagmi, injected + WalletConnect), `useWallet.ts`
-(`ready` vs `wrongChain` as separate states; `usableConnectors` drops `injected` when no
-provider has announced itself), `abi.ts` (local ABI slices).
-`src/components/wallet/` — `WalletProvider`, `ConnectWallet`, `NetworkBanner`.
-
-**Staking.** `components/market/StakePanel.tsx` (the acceptance estimate),
-`EntryFlow.tsx` (approve → enter → buffered → finalized, plus `friendlyError`),
-`PositionGate.tsx` (gates "Your position" on the connected address).
-
-**Claims and portfolio.** `app/api/claimable/route.ts`, `app/api/positions/route.ts`,
-`components/claim/ClaimList.tsx`, `components/portfolio/Portfolio.tsx`,
-`app/portfolio/page.tsx`; `lib/data/types.ts` gained `getPositions` + `PortfolioEntry`.
-
-**Design system.** `src/app/globals.css` rewritten to the shipped playhunch.xyz tokens;
-`components/ui/primitives.tsx` gained `Button` and a real tag, `Panel` gained radius + `.lift`.
-
-**Shared.** `lib/units.ts` gained `parseUsdcAmount` (lifted out of `RuleComparator` so the
-two amount fields cannot disagree).
+- `src/lib/chain.ts` — `ARC_MAINNET_ADDRESSES`, `NETWORKS`, `networkForChainId`, mainnet explorer
+  from env.
+- `src/lib/wallet/network.tsx` (new) — `NetworkProvider`/`useNetwork`, localStorage choice.
+- `src/lib/wallet/chains.ts` — `CHAINS` for both, `DEFAULT_NETWORK` (testnet); 18-decimal native.
+- `src/lib/wallet/config.ts` — both chains + transports; WalletConnect id defaults to Hunch's.
+- `src/lib/wallet/useWallet.ts` — compares wallet chain against the *selected* network.
+- `src/components/wallet/NetworkToggle.tsx`, `MainnetNotice.tsx` (new); header + layout wired.
+- `src/components/market/EntryFlow.tsx` — addresses/explorer from the selected network.
+- Tests: `network-toggle.test.tsx` (new), `wallet-config.test.ts`, `wallet-chains.test.ts`.
 
 ## Key decisions — choices and trade-offs, why X over Y
 
-- **Connect Wallet, never Privy.** User instruction, and right independently: this venue
-  never custodies, so an embedded-wallet provider is a custody-shaped dependency.
-- **The entry flow has THREE states, because the contract does.** `enter` *buffers* — it
-  pushes the position with `accepted = 0`, pulls the full amount, and emits `Entered`
-  carrying **`offered`, never `accepted`**. Rationing happens in `_finalizeVintage`, on the
-  first call touching the market in a *later block*. A UI reading `offered` as "accepted"
-  would be contradicted by a refund minutes later. Hence "Close the vintage" — callable by
-  anyone, and a vintage nobody closes is a position nobody can claim.
-- **The acceptance estimate precedes the signature.** A refund learned about afterwards reads
-  as a bug; disclosed beforehand it reads as the rule working. Accepted and refused get equal
-  weight; the refusal is never styled as a warning.
-- **`vpm.simulateEntry` is the only implementation of the acceptance rule.** Already correct
-  on the hard part — cap taken per opposing book and minimised in one pass, with the offer
-  inside the denominator. A second copy would drift.
-- **Claims and positions read through server routes**, not the browser: the Graph gateway
-  carries its key as a **path segment**, and the repo already refuses to build with a keyed
-  URL in a `NEXT_PUBLIC_` variable. bigint crosses as decimal strings; `cache-control: private`.
-- **Corners are rounded.** This reverses `globals.css` v1.0's documented argument for square;
-  the shipped product uses tag 6 / control 12 / card 16 / pill everywhere. Recorded in the file.
-- **No credential has a default** — WalletConnect project id, faucet URL. A placeholder that
-  half-works is worse than an honest absence.
+- **Connect Wallet, never Privy** (main Hunch uses Privy; the WalletConnect id came from inside
+  it and is public by design).
+- **Network is the viewer's explicit choice**; switching never moves the wallet — a mismatch is
+  a visible wrong-chain state. Default testnet.
+- **Mainnet notice is not dismissible.**
+- **Native 18 / ERC-20 6** — `nativeCurrency` is the native view; every amount the app handles
+  is the ERC-20 view.
+- **No guessed mainnet values** (RPC, explorer, addresses).
+- **Entry flow has three states** because `enter` buffers and emits `offered`, not `accepted`.
+- **Acceptance estimate precedes signature; `vpm.simulateEntry` is the only implementation.**
+- **Claims/positions via server routes** — gateway key is a URL path segment.
 
 ## Constraints learned the hard way
 
-1. Market and claim pages are **server components** — never pass a function prop to a client
-   component. `StakePanel` renders `EntryFlow` itself; its `action` prop is a test seam only.
-2. The app **cannot import `@hunch-vpm/client` at typecheck time** (it builds before that
-   package does). Mirror ABIs and chain facts locally, as `lib/chain.ts` already did.
-3. Every page must render with **no wallet and nothing deployed**.
-4. `node` and `rm` are blocked in this sandbox; `curl` too. Use the browser tools to verify.
+1. Server components can't pass function props to client components.
+2. App can't import `@hunch-vpm/client` at typecheck time — mirror ABIs/chain facts locally.
+3. Every page must render with no wallet and nothing deployed.
+4. `node`, `rm`, `curl`, `timeout` blocked/absent in this sandbox; use `cast`, browser tools, `mv`
+   to scratchpad.
+5. Don't run verify concurrently with `next dev` or forge simulations — tests time out.
 
 ## Next steps
 
-1. **Close the live-positions gap** — add `positions(where: { owner })` to
-   `@hunch-vpm/client`, call it from `live.ts:getPositions`. Required before mainnet:
-   without it a user who stakes cannot see their position anywhere but the claim page.
-2. Once contracts are deployed, **walk the whole transactional path on testnet**: approve,
-   enter, partial acceptance, close the vintage, claim, and one void.
-3. Rate-limit `/api/claimable` and `/api/positions`.
-4. Per-market OG images (needs a generated OG route).
+1. **Per-network data layer:** `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_{TESTNET,MAINNET}` (and ERC-8004),
+   `network` param on `/api/claimable` + `/api/positions`, board/market pages network-aware, and
+   make footer/ContractsPanel/agents read the selected network.
+2. Client `positions(where:{owner})` read → `live.ts:getPositions`.
+3. After testnet deploy: fill `ARC_TESTNET_ADDRESSES`, walk approve → enter → partial → close
+   vintage → claim → void on real testnet.
+4. After mainnet launch: set mainnet RPC/explorer env and addresses; rate-limit the API routes.

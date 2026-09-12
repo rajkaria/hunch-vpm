@@ -31,9 +31,13 @@ export const ARC_TESTNET: ChainFacts = {
 export const ARC_MAINNET: ChainFacts = {
   id: 5042,
   name: 'Arc',
-  // No mainnet explorer URL has been verified for this repo, so mainnet links
-  // are suppressed rather than guessed.
-  explorerUrl: '',
+  /*
+   * No mainnet explorer URL has been verified for this repo, so mainnet links
+   * are SUPPRESSED rather than guessed — `addressExplorerUrl` returns null and
+   * callers render plain text. Set NEXT_PUBLIC_ARC_EXPLORER_URL once the real
+   * one is known and every mainnet address on the surface becomes a link.
+   */
+  explorerUrl: process.env['NEXT_PUBLIC_ARC_EXPLORER_URL'] ?? '',
   caip2: 'eip155:5042',
   graphSlug: 'arc',
   testnet: false,
@@ -74,6 +78,45 @@ export const ARC_TESTNET_ADDRESSES: ContractAddresses = {
   validationRegistry: '0x8004Cb1BF31DAf7788923b405b754f57acEB4272',
   storkOracle: '0xacC0a0cF13571d30B4b8637996F5D6D774d4fd62',
 };
+
+/**
+ * Arc mainnet.
+ *
+ * **Every one of ours is a placeholder, and so are the ERC-8004 registries.**
+ * The registries have published addresses on *testnet*; no mainnet address has
+ * been verified for this repo, and guessing one would point the agents page at
+ * whatever happens to sit there. Absence is the honest state — `isDeployed`
+ * turns each of these into a "not deployed" badge rather than a dead link.
+ */
+export const ARC_MAINNET_ADDRESSES: ContractAddresses = {
+  vestedParimutuel: UNDEPLOYED,
+  classicParimutuel: UNDEPLOYED,
+  marketFactory: UNDEPLOYED,
+  feedResolver: UNDEPLOYED,
+  // USDC is at the same predeploy address on both Arc chains: it is the native
+  // gas token exposed through an ERC-20 interface, not a deployed token.
+  usdc: ARC_USDC,
+  identityRegistry: UNDEPLOYED,
+  reputationRegistry: UNDEPLOYED,
+  validationRegistry: UNDEPLOYED,
+  // Stork publishes an Arc *testnet* address. Nothing is published for mainnet
+  // that this repo has verified, so it is not guessed.
+  storkOracle: UNDEPLOYED,
+};
+
+/** The two networks this surface can transact on, as one lookup. */
+export type NetworkId = 'testnet' | 'mainnet';
+
+export const NETWORKS: Record<NetworkId, { facts: ChainFacts; addresses: ContractAddresses }> = {
+  testnet: { facts: ARC_TESTNET, addresses: ARC_TESTNET_ADDRESSES },
+  mainnet: { facts: ARC_MAINNET, addresses: ARC_MAINNET_ADDRESSES },
+};
+
+export function networkForChainId(chainId: number): NetworkId | null {
+  if (chainId === ARC_TESTNET.id) return 'testnet';
+  if (chainId === ARC_MAINNET.id) return 'mainnet';
+  return null;
+}
 
 export function isDeployed(address: string): boolean {
   return address.toLowerCase() !== UNDEPLOYED;

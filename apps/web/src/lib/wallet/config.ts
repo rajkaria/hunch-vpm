@@ -1,7 +1,7 @@
 import { http, createConfig, createStorage, cookieStorage } from 'wagmi';
 import { injected, walletConnect } from 'wagmi/connectors';
 
-import { ACTIVE_CHAIN } from './chains';
+import { CHAINS } from './chains';
 
 /**
  * The WalletConnect project id.
@@ -11,7 +11,17 @@ import { ACTIVE_CHAIN } from './chains';
  * app offers injected wallets only and says so, which is a working product for
  * anyone with MetaMask and an accurate statement for everyone else.
  */
-export const WALLETCONNECT_PROJECT_ID = process.env['NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID'] ?? '';
+/*
+ * Defaults to the project id the parent product already ships. A WalletConnect
+ * project id is public by design — it is in playhunch.xyz's own browser bundle,
+ * which is where this one came from — so committing it publishes nothing that
+ * was private. Override per deployment if you would rather the two surfaces
+ * report separately.
+ */
+const HUNCH_WALLETCONNECT_PROJECT_ID = '34357d3c125c2bcf2ce2bc3309d98715';
+
+export const WALLETCONNECT_PROJECT_ID =
+  process.env['NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID'] ?? HUNCH_WALLETCONNECT_PROJECT_ID;
 
 export const hasWalletConnect = WALLETCONNECT_PROJECT_ID !== '';
 
@@ -47,13 +57,13 @@ function build() {
   ];
 
   return createConfig({
-    chains: [ACTIVE_CHAIN],
+    chains: [CHAINS.testnet, CHAINS.mainnet],
     connectors,
     // Cookie storage so a connected account survives a server render without
     // the header flashing "Connect wallet" on every navigation.
     storage: createStorage({ storage: cookieStorage }),
     ssr: true,
-    transports: { [ACTIVE_CHAIN.id]: http() },
+    transports: { [CHAINS.testnet.id]: http(), [CHAINS.mainnet.id]: http() },
   });
 }
 

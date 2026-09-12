@@ -202,7 +202,7 @@ function Row({ agent, rank }: { agent: AgentRow; rank: number }) {
 
 function Tile({ label, value }: { label: string; value: string }) {
   return (
-    <div className="border border-edge bg-raised px-4 py-4">
+    <div className="lift rounded-card border border-edge bg-raised px-4 py-4">
       <p className="text-xs uppercase tracking-[0.12em] text-faint">{label}</p>
       <p className="num mt-2 text-2xl leading-none">{value}</p>
     </div>

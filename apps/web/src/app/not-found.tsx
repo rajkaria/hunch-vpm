@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function NotFound() {
   return (
-    <div className="border border-edge bg-raised px-5 py-16 text-center">
+    <div className="lift rounded-card border border-edge bg-raised px-5 py-16 text-center">
       <p className="num text-sm uppercase tracking-[0.14em] text-faint">404</p>
       <h1 className="mt-3 text-2xl">Nothing here.</h1>
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted">

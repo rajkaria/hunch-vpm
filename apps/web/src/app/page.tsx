@@ -1,7 +1,7 @@
 import Link from 'next/link';
 
 import { MarketCard } from '@/components/market/MarketCard';
-import { Amount, EmptyState, Stat } from '@/components/ui/primitives';
+import { Amount, Badge, Button, EmptyState, Stat } from '@/components/ui/primitives';
 import { dataSource } from '@/lib/data';
 import type { MarketSummary } from '@/lib/data/types';
 
@@ -20,34 +20,55 @@ export default async function MarketsPage() {
 
   return (
     <div>
-      <section className="mb-8 border border-edge bg-raised">
-        <div className="grid gap-6 px-5 py-6 sm:px-6 md:grid-cols-[1.6fr_1fr] md:items-end">
+      {/*
+        The hero carries the product's own opening: a row of tags, one display
+        line set tight, the claim in a sentence, and a single lime call to
+        action. The glow behind it is one radial at 8% and it is decoration —
+        `aria-hidden`, `pointer-events-none`, and nothing is ever placed on it
+        that has to stay legible.
+      */}
+      <section className="lift relative mb-8 overflow-hidden rounded-card border border-edge bg-raised">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-32 -right-24 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(200,240,79,0.08),transparent_70%)]"
+        />
+        <div className="relative grid gap-8 px-5 py-8 sm:px-7 sm:py-10 md:grid-cols-[1.6fr_1fr] md:items-end">
           <div>
-            <h1 className="max-w-xl text-3xl leading-[1.05] sm:text-4xl">
+            <div className="mb-5 flex flex-wrap items-center gap-2">
+              <Badge tone="up">Live on Arc</Badge>
+              <Badge tone="info">USDC native</Badge>
+              <Badge tone="note">Agent readable</Badge>
+            </div>
+            <h1 className="display-xl max-w-xl text-4xl sm:text-5xl">
               Stake vests the moment it lands.
             </h1>
-            <p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">
+            <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-muted">
               A classic pool pays money that arrives one second before the freeze the same multiple as money
               that was there from the start. This one does not. Stake on an outcome vests into the opposing
-              books immediately, and it is accepted only up to the room those books have to cover it.{' '}
-              <Link href="/docs" className="text-paper underline decoration-lime decoration-2 underline-offset-4">
-                How it works
-              </Link>
-              .
+              books immediately, and it is accepted only up to the room those books have to cover it.
             </p>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Button href="#open" size="sm">
+                See the board
+              </Button>
+              <Button href="/docs" variant="ghost" size="sm">
+                How it works
+              </Button>
+            </div>
           </div>
-          <dl className="grid grid-cols-2 gap-5 md:justify-items-end">
-            <Stat label="Markets open">
+          <dl className="grid grid-cols-2 gap-3 md:gap-4">
+            <HeroStat label="Markets open">
               <span className="num">{open.length}</span>
-            </Stat>
-            <Stat label="Accepted principal">
+            </HeroStat>
+            <HeroStat label="Accepted principal">
               <Amount value={pool} />
-            </Stat>
+            </HeroStat>
           </dl>
         </div>
       </section>
 
       <Section
+        id="open"
         title="Open"
         hint="Taking stake until the freeze."
         markets={open}
@@ -71,12 +92,14 @@ export default async function MarketsPage() {
 }
 
 function Section({
+  id,
   title,
   hint,
   markets,
   empty,
   emptyBody,
 }: {
+  id?: string;
   title: string;
   hint: string;
   markets: MarketSummary[];
@@ -84,11 +107,13 @@ function Section({
   emptyBody?: string;
 }) {
   return (
-    <section className="mb-10">
+    <section id={id} className="mb-10 scroll-mt-24">
       <div className="mb-4 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="text-lg">{title}</h2>
         <p className="text-sm text-muted">{hint}</p>
-        <span className="num ml-auto text-sm text-faint">{markets.length}</span>
+        <span className="num ml-auto rounded-pill border border-edge bg-ghost px-2.5 py-1 text-xs text-faint">
+          {markets.length}
+        </span>
       </div>
 
       {markets.length === 0 ? (
@@ -101,5 +126,18 @@ function Section({
         </div>
       )}
     </section>
+  );
+}
+
+/**
+ * The hero's two numbers, each in its own box. They are the only figures on
+ * the page not attached to a market, so they need an edge to belong to
+ * something; `Stat` on its own reads as a stray label out here.
+ */
+function HeroStat({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex h-full flex-col justify-between rounded-control border border-edge bg-raised-2 px-4 py-4">
+      <Stat label={label}>{children}</Stat>
+    </div>
   );
 }

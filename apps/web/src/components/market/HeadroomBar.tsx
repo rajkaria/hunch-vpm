@@ -33,12 +33,12 @@ export function CapacityTrack({
   if (unbounded) {
     // A book with no ceiling has no bar to fill. The empty track is still
     // drawn so a row of outcomes keeps one height.
-    return <div className="h-1.5 w-full bg-paper/8" aria-hidden />;
+    return <div className="h-1.5 w-full rounded-pill bg-paper/8" aria-hidden />;
   }
   const percent = ppmToPercentNumber(consumedPpm);
   return (
     <div
-      className="h-1.5 w-full bg-paper/8"
+      className="h-1.5 w-full overflow-hidden rounded-pill bg-paper/8"
       role="meter"
       aria-valuemin={0}
       aria-valuemax={100}
@@ -46,7 +46,7 @@ export function CapacityTrack({
       aria-label={label}
     >
       <div
-        className={`h-full ${FILL[tone]} transition-[width] duration-500 ease-out`}
+        className={`h-full rounded-pill ${FILL[tone]} transition-[width] duration-500 ease-out`}
         style={{ width: `${percent}%` }}
       />
     </div>

@@ -25,7 +25,7 @@ export function AddressLink({
     return (
       <span className={`num inline-flex items-center gap-2 text-sm text-muted ${className}`} title={address}>
         {text}
-        <span className="border border-edge px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] text-faint">
+        <span className="rounded-tag border border-edge px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] text-faint">
           not deployed
         </span>
       </span>

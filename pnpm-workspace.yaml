@@ -2,3 +2,5 @@ packages:
   - "packages/*"
   - "apps/*"
   - "agent"
+  - "subgraph"
+  - "subgraph-erc8004-arc"

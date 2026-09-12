@@ -5,7 +5,7 @@ layer on The Graph, and an identity layer that ties an agent to a human.
 
 ```
                          ┌──────────────────────────────────────────┐
-                         │  vpm.playhunch.xyz   ·   demo agent      │
+                         │  web surface  ·  demo agent  ·  Arc rail │
                          │  MCP tools · SKILL · @hunch-vpm/client    │
                          └───────────────┬──────────────────────────┘
                                          │ reads decisions, not rows
@@ -95,15 +95,37 @@ Ethereum, Base, BSC, Polygon and Monad, but not Arc — and retargets it at Arc'
 registries. One query pattern then spans agent identity and reputation on Base and on Arc,
 with no new types for anyone already querying the standard schema.
 
+## Continuity
+
+`packages/client/src/rail/` is the adapter that lets the existing product route Arc markets
+through this repository without rewriting its agent surface. `createArcRail` exposes the four
+verbs that API already speaks — research, quote, positions, trade — behind a `SettlementRail`
+interface the Postgres implementation can also satisfy, so the two are swappable by config.
+
+Two behaviours differ and the types make it hard to miss. `quote` answers with the acceptance
+rule rather than a price, so it reports requested, accepted and refused separately and names
+the book that bound it. `trade` returns unsigned calldata and nothing else — the return type
+is a union whose Arc arm is literally tagged `'unsigned-calldata'`, so a caller cannot read it
+as a fill.
+
 ## Identity
 
-`@hunch-vpm/agentkit-tier` verifies an AgentKit proof against canonical AgentBook and tiers
-on the result: a human-backed agent gets a higher rate limit, the full per-market cap and a
-badge. Anonymous agents keep working. The point is tiering, not exclusion.
+`@hunch-vpm/agentkit-tier` verifies an AgentKit proof against canonical AgentBook and tiers on
+the result: a human-backed agent gets a higher rate limit, the full per-market cap and a badge.
+Anonymous agents keep working. The point is tiering, not exclusion — the failure this is aimed
+at is a farm of wallets claiming to be different people, and refusing anonymous traffic
+outright would cost more honest users than it would stop farms.
+
+The canonical AgentBook address is a placeholder in this tree and the viem-backed verifier
+refuses to start when handed it, so the on-chain half is wired and tested against fixtures but
+has not run against the real registry. Selfie Check is not implemented here at all.
 
 ## What is not here
 
 The venue never custodies. `@hunch-vpm/client` returns unsigned calldata for the caller's own
-wallet and holds no key. No contract in this repo lets its deployer, the factory or the
-resolver owner move a user's funds, which the invariant suite asserts directly by having an
-address with no position try every method on every path.
+wallet and holds no key. No contract in this repo lets its deployer, the factory or the resolver owner move a user's
+funds. The invariant suite asserts it directly: across 8192 calls per run, an address holding
+no position tries `claim`, `withdrawRefund`, `claimResidue`, `resolve` and `transferPosition`
+on live markets in arbitrary states, and its balance is asserted to stay at zero. The factory
+has its own test that it cannot resolve what it opened, and ends every `open` holding no
+position, no allowance and no balance.

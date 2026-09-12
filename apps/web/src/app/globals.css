@@ -1,0 +1,111 @@
+@import 'tailwindcss';
+
+/*
+ * The Hunch design system, v1.0, as tokens.
+ *
+ * The palette is closed: Ink is the ground, Raised is anything that floats on
+ * it, Paper is text, and there are exactly two accents doing exactly two jobs
+ * — lime is YES and UP, coral is NO and DOWN. Gold and Amber belong to the
+ * other surfaces in the family and are declared so nothing else drifts into
+ * their slot, not so this one can decorate with them.
+ *
+ * Corners are square everywhere. The opening in the mark is the only curve in
+ * the identity, and a rounded panel next to it reads as a different product.
+ */
+@theme {
+  --color-ink: #08080a;
+  --color-raised: #0e0e12;
+  --color-paper: #f4f4f2;
+  --color-lime: #c8f04f;
+  --color-coral: #ff6b7a;
+  --color-gold: #f3cc6b;
+  --color-amber: #fcd34d;
+
+  /* Paper over Ink at fixed alphas, resolved once so every surface agrees. */
+  --color-muted: #8c8c8b;
+  --color-faint: #5c5c5d;
+  --color-edge: #1d1d23;
+  --color-edge-soft: #141418;
+
+  --font-display: var(--font-archivo), 'Helvetica Neue', Arial, sans-serif;
+  --font-body: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-none: 0px;
+}
+
+/*
+ * This surface commits to one look. The brand is a dark ground and a light
+ * mark; there is no light variant of it to switch to, so the page declares
+ * its scheme rather than inheriting the viewer's and painting half of it.
+ */
+:root {
+  color-scheme: dark;
+}
+
+html {
+  background-color: var(--color-ink);
+  /* The countdown and the bars move; nothing else should, and an anchor jump
+     that animates is a page that feels slower than it is. */
+  scroll-behavior: auto;
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/*
+ * Numerals are mono and tabular everywhere they appear; prose never is. A
+ * column of amounts whose digits are different widths cannot be read down,
+ * and a value that changes width when it updates drags its row with it.
+ */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  letter-spacing: -0.01em;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  /* 800 is the ceiling. There is no 900 in this system. */
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* One focus treatment, on the accent, visible against every surface here. */
+:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-lime);
+  color: var(--color-ink);
+}
+
+/*
+ * Motion is a transition on a bar width and nothing else. Someone who has
+ * asked their system not to animate gets the end state immediately.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Wide content scrolls inside its own box; the page body never does. */
+.scroll-x {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}

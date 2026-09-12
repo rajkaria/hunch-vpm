@@ -1,0 +1,313 @@
+/**
+ * The live data source: the same interface, backed by `@hunch-vpm/client`.
+ *
+ * Two things about this file are deliberate.
+ *
+ * The client is loaded through a dynamic import with a specifier the compiler
+ * cannot follow, and its surface is described by the local interfaces below
+ * rather than by importing its types. That is not shyness about types: the
+ * client publishes its types from `dist`, and this app has to typecheck and
+ * build in a workspace where that has not been produced yet — a fresh clone,
+ * and CI, where `pnpm -r typecheck` runs before `pnpm -r build`. A static
+ * import would make the web app's typecheck depend on another package's build
+ * artefact. The declarations here are checked against the real ones at the one
+ * moment it matters, when the module is loaded and called.
+ *
+ * And it is honest about its edges. The client answers questions about a
+ * market you can name; it has no "list every market" read, no leaderboard, and
+ * no entry-level history to draw a vesting curve from. Where that is the case
+ * this source says so through the value it returns — an empty list, an empty
+ * history — rather than inventing something, and the pages render the empty
+ * state they already have to render anyway.
+ */
+
+import { ARC_TESTNET_ADDRESSES } from '../chain';
+import { formatPrice } from '../units';
+import { formatUtcDate } from '../time';
+import type {
+  AgentRow,
+  ClaimableView,
+  DataSource,
+  MarketDetail,
+  MarketStatus,
+  MarketSummary,
+  OutcomeView,
+  ResolutionSpec,
+  SettlerKind,
+} from './types';
+
+// ------------------------------------------------------------------ the client's surface, as used here
+
+interface ClientBookView {
+  outcome: number;
+  principal: bigint;
+  vested: bigint;
+  capacity: bigint | null;
+  headroom: bigint | null;
+  probabilityPpm: bigint;
+  maxFullyAccepted: bigint | null;
+  acc: bigint;
+  live: number | null;
+}
+
+interface ClientResolutionSpec {
+  specId: string;
+  oracle: string;
+  feedKey: string;
+  strike: bigint;
+  direction: 'above' | 'below';
+  maxStaleness: bigint;
+}
+
+interface ClientMarketBook {
+  marketId: string;
+  settler: string;
+  settlerKind: SettlerKind;
+  onChainMarketId: bigint;
+  token: string;
+  status: MarketStatus;
+  winner: number | null;
+  kappa: bigint | null;
+  acceptedPool: bigint;
+  paidOut: bigint;
+  residue: bigint;
+  residueOwner: string;
+  residueClaimed: boolean;
+  resolutionTime: bigint;
+  secondsToFreeze: bigint;
+  frozen: boolean;
+  voidTimeout: bigint;
+  voidableFrom: bigint;
+  books: ClientBookView[];
+  spec: ClientResolutionSpec | null;
+  index: { block: bigint; hasIndexingErrors: boolean };
+}
+
+interface ClientClaimBreakdown {
+  settlement: bigint;
+  voidRefund: bigint;
+  refusedRemainder: bigint;
+  residue: bigint;
+}
+
+interface ClientClaimable {
+  wallet: string;
+  totals: ClientClaimBreakdown & { total: bigint };
+  items: {
+    id: string;
+    marketId: string;
+    amount: bigint;
+    breakdown: ClientClaimBreakdown;
+    call: 'claim' | 'withdrawRefund' | 'claimResidue';
+    argument: bigint;
+    settler: string;
+  }[];
+  blockedResidue: { marketId: string; amount: bigint; reason: string }[];
+  index: { block: bigint; hasIndexingErrors: boolean };
+}
+
+interface ClientSurface {
+  marketBook(marketId: string): Promise<ClientMarketBook>;
+  claimable(wallet: string): Promise<ClientClaimable>;
+}
+
+interface ClientModule {
+  createHunchClient(config: Record<string, unknown>): ClientSurface;
+}
+
+export interface LiveSourceOptions {
+  /** The `hunch-vpm` subgraph's query endpoint. */
+  subgraphUrl: string;
+  /** The ERC-8004 subgraph for the same chain, when reputation is wanted. */
+  erc8004SubgraphUrl?: string;
+  /**
+   * Which markets the board lists. The client reads a market you can name; it
+   * has no query that enumerates them, so the deployment says which ones it
+   * is for. Ids are subgraph ids, `<settler>-<index>`.
+   */
+  marketIds?: string[];
+  /** The connected wallet, when there is one. */
+  wallet?: string | null;
+}
+
+/**
+ * Load the client once, lazily.
+ *
+ * The specifier goes through a variable so the bundler and the compiler both
+ * leave it alone; see the note at the top of this file for why that matters.
+ */
+let clientModule: Promise<ClientModule> | null = null;
+function loadClient(): Promise<ClientModule> {
+  if (clientModule === null) {
+    const specifier = '@hunch-vpm/client';
+    clientModule = import(/* webpackIgnore: true */ specifier) as Promise<ClientModule>;
+  }
+  return clientModule;
+}
+
+export function createLiveSource(options: LiveSourceOptions): DataSource {
+  const marketIds = options.marketIds ?? [];
+  const wallet = options.wallet ?? null;
+
+  const client = async (): Promise<ClientSurface> => {
+    const module = await loadClient();
+    return module.createHunchClient({
+      subgraphUrl: options.subgraphUrl,
+      ...(options.erc8004SubgraphUrl === undefined ? {} : { erc8004SubgraphUrl: options.erc8004SubgraphUrl }),
+    });
+  };
+
+  const read = async (id: string): Promise<MarketDetail> => {
+    const book = await (await client()).marketBook(id);
+    return toMarketDetail(book);
+  };
+
+  return {
+    kind: 'live',
+
+    async listMarkets(): Promise<MarketSummary[]> {
+      const hunch = await client();
+      const books = await Promise.all(marketIds.map((id) => hunch.marketBook(id)));
+      return books.map(toMarketDetail);
+    },
+
+    async getMarket(id: string): Promise<MarketDetail | null> {
+      try {
+        return await read(id);
+      } catch (error) {
+        // The client throws `NotFoundError` for an id the index does not hold,
+        // which is a 404 here and not a failure worth a stack trace.
+        if (error instanceof Error && error.name === 'NotFoundError') return null;
+        throw error;
+      }
+    },
+
+    async listAgents(): Promise<AgentRow[]> {
+      // The client reads the counterparties of one market, not a ranking
+      // across all of them. A leaderboard needs an aggregate the subgraph does
+      // not publish yet; returning nothing renders the empty state rather than
+      // a made-up ranking.
+      return [];
+    },
+
+    async getClaimable(forWallet: string): Promise<ClaimableView> {
+      const claimable = await (await client()).claimable(forWallet);
+      return {
+        wallet: claimable.wallet,
+        totals: claimable.totals,
+        items: claimable.items.map((item) => ({
+          ...item,
+          // The claim read does not carry the question, and fetching every
+          // market to label a row would multiply the request count. The id is
+          // what the transaction needs and the row links to the market.
+          question: item.marketId,
+        })),
+        blockedResidue: claimable.blockedResidue.map((entry) => ({ ...entry, question: entry.marketId })),
+        index: { ...claimable.index, source: 'live' },
+      };
+    },
+
+    currentWallet(): string | null {
+      return wallet;
+    },
+  };
+}
+
+// ------------------------------------------------------------------ mapping
+
+function toMarketDetail(book: ClientMarketBook): MarketDetail {
+  const spec = book.spec === null ? null : toSpec(book.spec);
+  return {
+    id: book.marketId,
+    onChainMarketId: book.onChainMarketId,
+    settler: book.settler,
+    settlerKind: book.settlerKind,
+    question: describe(spec, book.resolutionTime),
+    subject: spec?.feedLabel ?? 'Unknown feed',
+    status: book.status,
+    winner: book.winner,
+    kappa: book.kappa,
+    acceptedPool: book.acceptedPool,
+    resolutionTime: book.resolutionTime,
+    secondsToFreeze: book.secondsToFreeze,
+    frozen: book.frozen,
+    outcomes: book.books.map((entry) => toOutcome(entry, spec)),
+    token: book.token,
+    creator: book.settler,
+    resolver: ARC_TESTNET_ADDRESSES.feedResolver,
+    residueOwner: book.residueOwner,
+    residueClaimed: book.residueClaimed,
+    residue: book.residue,
+    paidOut: book.paidOut,
+    voidTimeout: book.voidTimeout,
+    voidableFrom: book.voidableFrom,
+    vintageOpen: false,
+    vintageBlock: null,
+    spec,
+    // The curve needs per-entry history, which is an event query the client
+    // does not expose. The market page renders without it.
+    history: [],
+    positions: [],
+    index: { ...book.index, source: 'live' },
+  };
+}
+
+function toOutcome(entry: ClientBookView, spec: ResolutionSpec | null): OutcomeView {
+  return {
+    outcome: entry.outcome,
+    label: outcomeLabel(entry.outcome, spec),
+    tone: entry.outcome === 0 ? 'up' : entry.outcome === 1 ? 'down' : 'neutral',
+    principal: entry.principal,
+    vested: entry.vested,
+    capacity: entry.capacity,
+    acc: entry.acc,
+    // `marketBook` reports the room, not the queue behind it. Treating the
+    // queue as empty makes `maxFullyAccepted` an upper bound, which is what
+    // the client's own `demandUnknown` flag says about the same read.
+    demand: 0n,
+    live: entry.live,
+    probabilityPpm: entry.probabilityPpm,
+  };
+}
+
+function toSpec(spec: ClientResolutionSpec): ResolutionSpec {
+  return {
+    specId: spec.specId,
+    oracle: spec.oracle,
+    oracleName: spec.oracle.toLowerCase() === ARC_TESTNET_ADDRESSES.storkOracle.toLowerCase()
+      ? 'Stork, through the IPriceOracle adapter'
+      : `Oracle adapter at ${spec.oracle}`,
+    feedKey: spec.feedKey,
+    feedLabel: FEED_LABELS[spec.feedKey.toLowerCase()] ?? spec.feedKey,
+    strike: spec.strike,
+    direction: spec.direction,
+    maxStaleness: spec.maxStaleness,
+    lastPrice: null,
+    lastUpdatedAt: null,
+  };
+}
+
+/**
+ * Feed keys are opaque bytes32 to everyone but the adapter. This maps the ones
+ * this deployment uses; anything else shows the key itself rather than a guess.
+ */
+const FEED_LABELS: Record<string, string> = {
+  '0x7404e3d104ea7841c3d9e6fd20adfe99b4ad586bc08d8f3bd3afef894cf184de': 'ETHUSD',
+};
+
+/**
+ * A market has no title on chain: it has a spec. Say what the spec says, in a
+ * sentence, rather than leave the page headed by a hash.
+ */
+function describe(spec: ResolutionSpec | null, resolutionTime: bigint): string {
+  if (spec === null) return 'Market with no registered resolution spec';
+  const side = spec.direction === 'above' ? 'above' : 'below';
+  return `Will ${spec.feedLabel} be ${side} ${formatPrice(spec.strike)} on ${formatUtcDate(resolutionTime)}?`;
+}
+
+function outcomeLabel(outcome: number, spec: ResolutionSpec | null): string {
+  if (spec === null) return `Outcome ${outcome}`;
+  const strike = formatPrice(spec.strike);
+  if (spec.direction === 'above') return outcome === 0 ? `Above ${strike}` : `Below ${strike}`;
+  return outcome === 0 ? `Below ${strike}` : `Above ${strike}`;
+}

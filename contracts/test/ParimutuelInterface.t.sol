@@ -31,6 +31,9 @@ contract ParimutuelInterfaceTest is Test {
         assertEq(IParimutuelSettler.voidMarket.selector, VestedParimutuel.voidMarket.selector, "voidMarket");
         assertEq(IParimutuelSettler.claim.selector, VestedParimutuel.claim.selector, "claim");
         assertEq(IParimutuelSettler.withdrawRefund.selector, VestedParimutuel.withdrawRefund.selector, "withdrawRefund");
+        assertEq(
+            IParimutuelSettler.transferPosition.selector, VestedParimutuel.transferPosition.selector, "transferPosition"
+        );
         assertEq(IParimutuelSettler.headroom.selector, VestedParimutuel.headroom.selector, "headroom");
         assertEq(IParimutuelSettler.previewPayout.selector, VestedParimutuel.previewPayout.selector, "previewPayout");
         assertEq(IParimutuelSettler.getMarket.selector, VestedParimutuel.getMarket.selector, "getMarket");

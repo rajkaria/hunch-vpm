@@ -56,6 +56,9 @@ interface IParimutuelSettler {
     /// @notice Withdraw the refused remainder of a partial fill on its own.
     function withdrawRefund(uint256 positionId) external;
 
+    /// @notice Hand a position to another address, settlement rights and all.
+    function transferPosition(uint256 positionId, address to) external;
+
     /// @notice Room a book still has to accept stake against it.
     function headroom(uint256 marketId, uint8 outcome) external view returns (uint256);
 

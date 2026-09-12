@@ -70,6 +70,7 @@ contract ClassicParimutuel is IParimutuelSettler {
     event Voided(uint256 indexed marketId);
     event Claimed(uint256 indexed positionId, address indexed to, uint256 payout, uint256 refund);
     event ResidueClaimed(uint256 indexed marketId, address indexed to, uint256 amount);
+    event PositionTransferred(uint256 indexed positionId, address indexed from, address indexed to);
 
     // ------------------------------------------------------------------ errors
 
@@ -262,6 +263,17 @@ contract ClassicParimutuel is IParimutuelSettler {
     ///      method exists so the two settlers present one surface; it always reverts.
     function withdrawRefund(uint256) external pure {
         revert NothingToRefund();
+    }
+
+    /// @inheritdoc IParimutuelSettler
+    /// @dev Settlement follows the position, not the address that opened it — which is what
+    ///      lets a factory open a market on someone's behalf and hand them the seed legs.
+    function transferPosition(uint256 positionId, address to) external {
+        Position storage p = positions[positionId];
+        if (p.owner != msg.sender) revert NotOwner();
+        if (p.claimed) revert AlreadyClaimed();
+        p.owner = to;
+        emit PositionTransferred(positionId, msg.sender, to);
     }
 
     /// @notice Sweep the flooring remainder once every winning position has been paid.

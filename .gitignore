@@ -47,3 +47,4 @@ docs/SPEC.md
 
 # Autonomous run state — internal, never ships
 .ocean/
+.burn-rate/

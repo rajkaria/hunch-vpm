@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+import { ConnectWallet } from '@/components/wallet/ConnectWallet';
 import { ARC_TESTNET } from '@/lib/chain';
 
 const LINKS = [
@@ -63,12 +64,14 @@ export function SiteHeader() {
         </nav>
 
         <span
-          className="num hidden shrink-0 items-center gap-2 rounded-pill border border-edge bg-ghost px-3 py-1.5 text-[11px] text-muted sm:flex"
+          className="num hidden shrink-0 items-center gap-2 rounded-pill border border-edge bg-ghost px-3 py-1.5 text-[11px] text-muted lg:flex"
           title={`Chain id ${ARC_TESTNET.id}`}
         >
           <span aria-hidden className="inline-block h-1.5 w-1.5 rounded-full bg-lime shadow-[0_0_0_3px_rgba(200,240,79,0.15)]" />
           {ARC_TESTNET.name}
         </span>
+
+        <ConnectWallet />
       </div>
     </header>
   );

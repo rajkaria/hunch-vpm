@@ -83,6 +83,49 @@ export {
 } from './units.js';
 export type { FormatOptions } from './units.js';
 
+// The Arc settlement rail: the four agent verbs (research, quote, positions,
+// trade) over the reads and writes above, for a product that already has an
+// agent API and wants Arc markets behind it unchanged. See
+// `docs/integration/hunch-arc-rail.md`.
+export { createArcRail } from './rail/createArcRail.js';
+export type { ArcRail, ArcRailConfig } from './rail/createArcRail.js';
+export { ARC_RAIL, arcRailCapabilities, custodialRailCapabilities } from './rail/capabilities.js';
+export { acceptanceOf } from './rail/acceptance.js';
+export type { Acceptance, BookAcceptance } from './rail/acceptance.js';
+export { SideMap } from './rail/sides.js';
+export { RailError, TradeRefusedError, UnknownSideError } from './rail/errors.js';
+export { isUnsignedTrade } from './rail/types.js';
+export type { ArcResearch } from './rail/research.js';
+export type { ArcQuote } from './rail/quote.js';
+export type { ArcPosition, ArcPositions, PositionClaim } from './rail/positions.js';
+export type { ArcTrade, ArcTradeOptions } from './rail/trade.js';
+export type {
+  ExecutedTrade,
+  QuoteAcceptance,
+  RailCapabilities,
+  RailCounterparty,
+  RailCounterpartySide,
+  RailHeadroom,
+  RailId,
+  RailOpposingBook,
+  RailOutcome,
+  RailPayoutPreview,
+  RailPosition,
+  RailPositions,
+  RailQuote,
+  RailReadOptions,
+  RailRefusal,
+  RailRefusalKind,
+  RailResearch,
+  RailResolution,
+  RailSide,
+  RailTrade,
+  RailTradeOptions,
+  SettlementRail,
+  TradeStep,
+  UnsignedTrade,
+} from './rail/types.js';
+
 export { DecodeError, sameAddress } from './decode.js';
 export type { PositionHolding, UnclaimedWinner } from './decode.js';
 

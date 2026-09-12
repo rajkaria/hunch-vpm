@@ -42,3 +42,22 @@ jobs:
       - run: pnpm -r --if-present typecheck
       - run: pnpm -r --if-present test
       - run: pnpm -r --if-present build
+
+  substreams:
+    name: substreams
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('substreams/Cargo.toml') != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: substreams
+      - name: cargo fmt --check
+        run: cargo fmt --manifest-path substreams/Cargo.toml --check
+      - name: cargo clippy
+        run: cargo clippy --manifest-path substreams/Cargo.toml --target wasm32-unknown-unknown -- -D warnings
+      - name: cargo build
+        run: cargo build --manifest-path substreams/Cargo.toml --release --target wasm32-unknown-unknown

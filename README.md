@@ -7,6 +7,7 @@ book is readable through The Graph.
 - Mechanism paper: [*The Vested Parimutuel*](https://www.playhunch.xyz/vpm-whitepaper)
 - Parent product: [Hunch](https://www.playhunch.xyz)
 - Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) · Operations: [`docs/RUNBOOK.md`](docs/RUNBOOK.md)
+- Submission: [`docs/SUBMISSION.md`](docs/SUBMISSION.md) · Checklist: [`docs/SUBMISSION-CHECKLIST.md`](docs/SUBMISSION-CHECKLIST.md)
 
 ## Why
 

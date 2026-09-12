@@ -3,6 +3,7 @@ import { Archivo, Inter, JetBrains_Mono } from 'next/font/google';
 
 import { SiteFooter } from '@/components/chrome/SiteFooter';
 import { SiteHeader } from '@/components/chrome/SiteHeader';
+import { NetworkBanner } from '@/components/wallet/NetworkBanner';
 import { WalletProvider } from '@/components/wallet/WalletProvider';
 import { dataSource } from '@/lib/data';
 import './globals.css';
@@ -90,6 +91,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteHeader />
           <main id="main" className="mx-auto w-full max-w-[1180px] px-4 pb-24 pt-6 sm:px-6">
             {dataSource.kind === 'fixture' ? <FixtureNotice /> : null}
+            <NetworkBanner />
             {children}
           </main>
           <SiteFooter />

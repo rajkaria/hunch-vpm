@@ -38,7 +38,7 @@ export function SiteHeader() {
             clear space the guidelines ask for.
           */}
           <img src="/brand/hunch-lockup.svg" alt="Hunch" width={113} height={24} className="h-6 w-auto" />
-          <span className="rounded-tag border border-lime/30 bg-lime/10 px-2 py-1 text-[10px] leading-none font-semibold tracking-[0.12em] text-lime uppercase">
+          <span className="hidden rounded-tag border border-lime/30 bg-lime/10 px-2 py-1 text-[10px] leading-none font-semibold tracking-[0.12em] text-lime uppercase sm:inline-block">
             VPM
           </span>
         </Link>

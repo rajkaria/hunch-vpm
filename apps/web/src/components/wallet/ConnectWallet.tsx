@@ -51,7 +51,10 @@ export function ConnectWallet() {
         disabled={wallet.switching}
         className="shrink-0 rounded-pill border border-coral/40 bg-coral/10 px-3.5 py-1.5 text-[13px] font-semibold text-coral transition-colors hover:bg-coral/15 disabled:opacity-60"
       >
-        {wallet.switching ? 'Check your wallet…' : `Switch to ${wallet.chainName}`}
+        <span className="sm:hidden">{wallet.switching ? 'Switching…' : 'Switch network'}</span>
+        <span className="hidden sm:inline">
+          {wallet.switching ? 'Check your wallet…' : `Switch to ${wallet.chainName}`}
+        </span>
       </button>
     );
   }
@@ -110,7 +113,8 @@ export function ConnectWallet() {
         aria-haspopup={only ? undefined : 'menu'}
         className="rounded-pill bg-lime px-4 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-lime/90 disabled:opacity-60"
       >
-        {wallet.connecting ? 'Connecting…' : 'Connect wallet'}
+        <span className="sm:hidden">{wallet.connecting ? 'Connecting…' : 'Connect'}</span>
+        <span className="hidden sm:inline">{wallet.connecting ? 'Connecting…' : 'Connect wallet'}</span>
       </button>
 
       {open && !only ? (
@@ -168,5 +172,5 @@ export function ConnectWallet() {
 
 /** Holds the control's width through the first paint so the header does not jump. */
 function Placeholder() {
-  return <div aria-hidden className="h-[30px] w-[120px] shrink-0 rounded-pill bg-paper/5" />;
+  return <div aria-hidden className="h-[30px] w-[92px] shrink-0 rounded-pill bg-paper/5 sm:w-[130px]" />;
 }

@@ -66,3 +66,17 @@ export const ACTIVE_CHAIN =
 
 export const ACTIVE_CHAIN_FACTS: ChainFacts =
   process.env['NEXT_PUBLIC_ARC_NETWORK'] === 'mainnet' ? ARC_MAINNET : ARC_TESTNET;
+
+/**
+ * Where an empty wallet is sent for testnet USDC.
+ *
+ * USDC is the gas token on Arc, which makes an empty wallet a hard stop rather
+ * than an inconvenience: there is no transaction it can send to get started,
+ * including the one that would fund it. So the empty-balance state has to hand
+ * the visitor somewhere to go.
+ *
+ * No default. A faucet link that 404s teaches someone the site is broken, and
+ * the right URL is deployment-specific — when it is unset the UI states the
+ * problem without inventing a destination.
+ */
+export const FAUCET_URL = process.env['NEXT_PUBLIC_ARC_FAUCET_URL'] ?? '';

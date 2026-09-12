@@ -13,6 +13,7 @@ import { Amount, Badge, Button } from '@/components/ui/primitives';
 import { ARC_TESTNET_ADDRESSES, isDeployed, txExplorerUrl } from '@/lib/chain';
 import type { MarketDetail } from '@/lib/data/types';
 import { erc20Abi, settlerAbi } from '@/lib/wallet/abi';
+import { FAUCET_URL } from '@/lib/wallet/chains';
 import { useWallet } from '@/lib/wallet/useWallet';
 import type { Acceptance } from '@/lib/vpm';
 
@@ -141,12 +142,7 @@ export function EntryFlow({
 
   return (
     <div className="space-y-3">
-      {short ? (
-        <Note tone="warn">
-          Your balance is <Amount value={balance.data ?? 0n} className="text-paper" /> USDC, less
-          than you are offering. USDC is also the gas token on Arc.
-        </Note>
-      ) : null}
+      {short ? <ShortBalance balance={balance.data ?? 0n} /> : null}
 
       {needsApproval ? (
         <Button
@@ -297,6 +293,50 @@ function BufferedResult({
           className="inline-block text-xs text-muted hover:text-paper hover:underline"
         >
           View the entry transaction →
+        </a>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The empty-wallet state.
+ *
+ * On Arc this is a hard stop, not an inconvenience: USDC is the gas token, so a
+ * wallet with none cannot send any transaction at all — including one that
+ * would fund it. Saying "insufficient balance" and stopping there leaves
+ * somebody with nowhere to go, so this points at a faucet when the deployment
+ * has been told about one, and says plainly that it has not when it hasn't.
+ */
+function ShortBalance({ balance }: { balance: bigint }) {
+  return (
+    <div className="rounded-control border border-coral/35 bg-coral/10 px-3 py-2.5">
+      <p className="text-sm leading-snug text-paper">
+        {balance === 0n ? (
+          <>This wallet holds no USDC.</>
+        ) : (
+          <>
+            This wallet holds <Amount value={balance} className="text-paper" /> USDC, less than you
+            are offering.
+          </>
+        )}{' '}
+        <span className="text-muted">
+          USDC is also the gas token on Arc, so you need some before anything can be sent.
+        </span>
+      </p>
+      {FAUCET_URL === '' ? (
+        <p className="mt-2 text-xs leading-snug text-muted">
+          This deployment has no faucet link configured — ask whoever runs it where testnet USDC
+          comes from.
+        </p>
+      ) : (
+        <a
+          href={FAUCET_URL}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="mt-2 inline-block text-xs font-semibold text-lime hover:underline"
+        >
+          Get testnet USDC →
         </a>
       )}
     </div>

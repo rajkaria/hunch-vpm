@@ -5,7 +5,8 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "hunch-agent": "./dist/cli/main.js"
+    "hunch-agent": "./dist/cli/main.js",
+    "hunch-keeper": "./dist/keeper/main.js"
   },
   "exports": {
     ".": "./dist/index.js"
@@ -23,7 +24,8 @@
     "demo": "node dist/cli/main.js run"
   },
   "dependencies": {
-    "@hunch-vpm/client": "workspace:*"
+    "@hunch-vpm/client": "workspace:*",
+    "viem": "^2.56.3"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -13,6 +13,7 @@ import { RuleComparator, type WireBook, type WirePosition } from '@/components/m
 import { SettlerBadge, StatusBadge } from '@/components/market/StatusBadge';
 import { VestingCurve, type CurveSeries } from '@/components/market/VestingCurve';
 import { Amount, Badge, Panel, PanelHeader, Stat } from '@/components/ui/primitives';
+import { NETWORKS } from '@/lib/chain';
 import { dataSourceFor } from '@/lib/data';
 import { selectedNetwork } from '@/lib/network-server';
 import type { MarketDetail } from '@/lib/data/types';
@@ -261,7 +262,7 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
 
           <Panel>
             <PanelHeader title="How it resolves" />
-            <ResolutionPanel market={market} />
+            <ResolutionPanel market={market} chain={NETWORKS[network].facts} />
           </Panel>
 
           <Panel>

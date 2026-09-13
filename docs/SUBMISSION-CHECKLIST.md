@@ -13,7 +13,7 @@ operator has. **[either]** is mechanical once its blocker clears.
 
 - [x] `pnpm verify` green — 1,190 tests across contracts, workspace and Substreams
 - [x] CI green on all three jobs (`contracts`, `workspace`, `substreams`)
-- [x] Market surface deployed to production — <https://hunch-vpm.vercel.app>
+- [x] Market surface deployed to production — <https://vpm.playhunch.xyz>
 - [x] Vercel project connected to the repository; a push to `main` redeploys
 - [x] Submission write-up drafted
 - [x] **The venue is built.** Connect Wallet (no Privy), Arc add/switch, approve + enter with
@@ -46,7 +46,7 @@ Terminal width matters: the decision table is **105 columns**, and the closing n
 summary is **187**. Pick which one you would rather not wrap. Load `/`,
 `/m/eth-3000-sep30` and `/agents` once before recording so the first beat is not a compile.
 
-Record against <https://hunch-vpm.vercel.app> rather than localhost if you would rather show a
+Record against <https://vpm.playhunch.xyz> rather than localhost if you would rather show a
 live URL — the data is identical.
 
 **Done when:** a ≤4-minute video exists and is uploaded wherever the submission form wants it.
@@ -63,6 +63,10 @@ track titles. Read them off the ETHOnline page and replace the callout under *In
 ## High value — real on-chain data, in dependency order
 
 ### 3. Deploy the `erc8004-arc` subgraph **[you]** → then **[either]**
+
+**Done 2026-09-13.** `erc-8004-arc-testnet` v0.0.1 is live on Studio with no indexing errors. It was still
+backfilling at 10:19 UTC (block 46.87M of 61.88M). The rate has swung between 0.24M and 1.7M blocks/h,
+so check `_meta.block` again before recording `/agents`.
 
 **This does not wait on anything else.** Arc testnet's three ERC-8004 registries are live,
 they are not ours to deploy, and their addresses and start blocks are already committed in
@@ -88,6 +92,8 @@ What is needed from you: a Graph Studio deploy key.
 **Done when:** Studio shows the subgraph syncing and hands back a development query URL.
 
 ### 4. Point `/agents` at it **[either]**
+
+**Done 2026-09-13.** `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` is set in Vercel.
 
 Set `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL` in the Vercel project to the Studio **development query
 URL** and redeploy.
@@ -162,6 +168,8 @@ Six places read them and **none are wired to each other**:
 
 ### 7. Deploy the `hunch-vpm` subgraph **[either]**
 
+**Done 2026-09-13.** `hunch-vpm-arc-testnet` v0.0.1 is at chain head with no indexing errors.
+
 Same Studio key as step 3, second subgraph, after step 6:
 
 ```sh
@@ -175,6 +183,9 @@ Addresses and start blocks are already wired (`pnpm wire:testnet`, 2026-09-13).
 
 ### 8. Take the surface off fixtures **[either]**
 
+**Done 2026-09-13 (testnet).** The production board lists both live markets from the subgraph and
+shows no console errors. Mainnet still serves fixtures and says so, as it should until mainnet is deployed.
+
 Set `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` (keyless Studio URL — same warning as step 4),
 `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` and `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` in Vercel,
 then redeploy.
@@ -185,6 +196,14 @@ sets `dynamicParams = false`. A market not listed there has no page.
 **Done when:** the **SAMPLE DATA** banner is gone and the board lists real markets.
 
 ### 9. Open a market, and resolve one **[you]**
+
+**Half done.** Two markets opened on 2026-09-13; BTC / USD freezes 2026-09-15 16:00 UTC. **Resolving
+is blocked on Chainlink**: the CRE price relay needs deploy access, which `cre whoami` shows as
+*Not enabled*. Run `cre account access` in a terminal now. After it is granted, follow
+[`cre/README.md`](../cre/README.md) (deploy, `setExpectedWorkflowId`, confirm a price, `lock()`).
+The keeper resolves on its own once `KEEPER_PRIVATE_KEY` is set. If the relay misses the freeze,
+the market voids and refunds after its 3-day timeout. That is still a demonstrable, honest
+outcome, but not the one to film.
 
 The demo is far stronger with one real market that actually settled.
 
@@ -207,6 +226,9 @@ transaction hashes.
 ## Optional polish
 
 ### 10. `vpm.playhunch.xyz` **[you]**
+
+**Done.** The domain resolves to Vercel and serves production (checked 2026-09-13). Every link in the
+repo now points at it.
 
 Add the domain under Project → Settings → Domains, then create the record on `playhunch.xyz`:
 
@@ -250,7 +272,7 @@ make deploy VESTED=0x... CLASSIC=0x... FACTORY=0x... RESOLVER=0x...
 - [ ] Demo video uploaded
 - [ ] Prize tracks named in [`SUBMISSION.md`](SUBMISSION.md)
 - [ ] `pnpm verify` green on `main`, CI green on `main`
-- [ ] <https://hunch-vpm.vercel.app> loads, and its banner matches reality — fixtures if you
+- [ ] <https://vpm.playhunch.xyz> loads, and its banner matches reality — fixtures if you
       stopped at step 2, live if you finished step 8
 - [ ] Every "not done" in [`SUBMISSION.md`](SUBMISSION.md) still true, or struck
 - [ ] No secret in the repository. `.gitignore` excludes `.env` and `.env.*` while keeping

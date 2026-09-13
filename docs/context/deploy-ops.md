@@ -43,36 +43,42 @@ keeper, subgraph deploys, CI, and Vercel.
 - `0xc743…2eec-0` BTC / USD ≥ $77,000 @ 2026-09-15 16:00 UTC, spec `0x49a5f58c…c0ff`
 - `0xc743…2eec-1` ETH / USD ≥ $2,500 @ 2026-09-20 16:00 UTC, spec `0xa89bf6c8…70dc`
 
-Both indexed by the Studio subgraph. Deployer keeps about 11.8 USDC (ERC-20 view).
+Deployer `0x763e…0dE0` (keystore `arc-deployer`, password-prompted, no `ETH_PASSWORD` file) holds
+11.81 USDC.
 
-**Subgraphs:** `hunch-vpm-arc-testnet` v0.0.1 is at head. `erc-8004-arc-testnet` v0.0.1 was at
-block 41.08M of 61.86M at 12:00 IST (still backfilling, no errors). The user says both are
-published to the Network. Query URLs: `https://api.studio.thegraph.com/query/1760242/<slug>/v0.0.1`.
+**CRE relay — blocked on Chainlink, not on code.** CLI v1.33.0 is installed (`~/.cre/bin`) and logged
+in as org `org_XOTc8zpv3UbdxKar`. `cre whoami` → **Deploy Access: Not enabled**. `cre account
+access` needs a TTY (confirm + use-case prompt), so the operator must run it; the agent's shell
+gets `could not open a new TTY`. `cre workflow simulate price-relay --target staging-settings
+--non-interactive --trigger-index 0` passes: it compiles, reads ETH 2,478.55 / BTC 76,752.72 from
+Sepolia, and encodes one report. Nothing has been relayed, so `read()` still reverts `NoValue()`.
+**If access is not granted and deployed before 2026-09-15 16:00 UTC, the BTC market cannot resolve;**
+it becomes voidable at 2026-09-18 16:00 UTC and refunds every position.
 
-**Vercel** (`hunch-vpm`, linked in this worktree): `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET`,
-`NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` and `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` (both ids)
-are set for prod, preview and dev. PR #10's preview first failed at build (`Cannot find module
-@hunch-vpm/client/dist`). With that patched, the live reads failed at runtime ("The index could not be
-reached"), because `live.ts` imported the client through a variable specifier. Nothing bundled it,
-so the function's file trace had no client. Fix: a literal `import('@hunch-vpm/client')` (with
-`@ts-ignore`), web `build`/`dev` scripts that build the client first, and vitest aliasing the client
-to its source. Turbopack cannot alias the client to source, because it won't map `.js`→`.ts` in
-workspace packages.
+**Keeper:** `keeper.yml` is now a testnet + mainnet matrix (this branch). **`KEEPER_PRIVATE_KEY` is
+set (10:43 UTC)** for keeper address **`0x652EA9d40724A35e7FAA323e9b5053b6fbf1611a`**. The key was
+generated and piped straight into `gh secret set`: it never appeared in the transcript, and no
+other copy exists. If it is ever needed, generate a new one. The address needs ~1 testnet USDC
+(faucet.circle.com → Arc Testnet) before a live `resolve` can pay gas. The last manual run reported `2 checked · 0 actionable ·
+0 failed · dry run`. **The schedule has never fired**: zero `schedule`-event runs repo-wide in the
+two hours after merge. Changing the workflow file on `main` re-registers it; check after merge.
 
-**Keeper:** `.github/workflows/keeper.yml` runs every 10 min on `main`, taking spec ids from the
-deployments file. It is a dry run until the `KEEPER_PRIVATE_KEY` repo secret exists. The first manual
-run (34746039686) failed: `preview` reverts while the CRE oracle has no reading, and the keeper
-counted that as a failed read. Fixed on branch `claude/keeper-no-reading`: a revert becomes
-`hasReading: false` and the new `no-reading` action, which waits and never voids. A local dry run
-against Arc testnet now reports `2 checked · 0 failed`, exit 0.
+**Subgraphs (09:52 UTC):** `hunch-vpm-arc-testnet` at head (61,880,042), no errors.
+`erc-8004-arc-testnet` at 46,872,239 of ~61.88M at 10:19 UTC, no errors. The backfill rate is not
+steady: ~1.7M blocks/h from 06:30 to 09:52 UTC, then ~0.24M blocks/h from 09:52 to 10:19 UTC. Head
+could be anywhere from tonight to ~16 Sept, so re-measure rather than trusting an ETA.
 
-**MCP/agent env:** `packages/mcp/.env.example` now carries the real testnet settlers and Studio
-URLs. The agent's `HUNCH_SETTLER` / `HUNCH_MARKET_IDS` values are documented in `agent/README.md` and the RUNBOOK.
-Neither process runs anywhere hosted; whoever launches one sets its env.
+**Mainnet:** not deployed. docs.arc.io still says "Arc is currently available on Testnet only". No
+RPC, explorer or ERC-8004 registry addresses are published. Everything on our side is ready
+(RUNBOOK "Arc mainnet": funding table, preflight, `OpenMarket.s.sol`, keeper job, Vercel vars).
 
 ## Verified facts (2026-09-13)
 
 - **Native USDC = 18 dp; ERC-20 view `0x3600…0000` = 6.**
+- **forge cannot simulate an Arc USDC transfer.** USDC's `transferFrom` calls a blocklist precompile
+  at `0x1800…0001` that revm lacks, so it fails with `StackUnderflow`. `forge script --broadcast`
+  simulates first, so no forge script can move USDC on Arc. `cast send`/`cast estimate` go through
+  the node and work (the raw calldata form too).
 - **Stork on Arc testnet is dead:** last push 2026-06-14, block 47,013,326. `getTemporalNumericValueV1`
   reverts `StaleValue()` (validity 3600 s). Pushing needs a Stork API key.
 - **Pyth on Arc testnet** `0x2880…C17B43` (v1.4.5-alpha.1): Arc testnet was left out of the Pyth
@@ -83,27 +89,33 @@ Neither process runs anywhere hosted; whoever launches one sets its env.
 - **CRE on Arc testnet:** production KeystoneForwarder `0x76c9cf548b4179F8901cda1f8623568b58215E62`
   ("KeystoneForwarder 1.0.0", has code). The simulation MockKeystoneForwarder `0x6E9E…dc1` checks no
   signatures, so it is never trusted. CLI ≥ 1.0.7; deploy access is gated (`cre account access`).
+  The CLI installs with `curl -sSL https://app.chain.link/cre/install.sh | bash`, which redirects to
+  `smartcontractkit/cre-cli` on GitHub.
 - **Sepolia source feeds** (on-chain `description()` checked): ETH/USD
   `0x694AA1769357215DE4FAC081bf1f309aDC325306`, BTC/USD `0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43`,
   8 dp, fresh.
 - `@chainlink/cre-sdk@1.21.0` is a broken publish (`workspace:*` dep); pinned 1.20.0.
-- Hermes/Studio POSTs via `curl` are blocked in this shell (security hook). Use the Browser pane's JS
-  `fetch` from the target origin. `node`, `rm` and `curl` are shell-blocked; pnpm scripts and bun work.
+- **Shell limits.** Hooks block `curl`, `ruby`, `node` and `rm`; `timeout` is absent. bun
+  (`Bun.YAML.parse`), pnpm scripts, forge and cast work. For Studio/Hermes POSTs, use the Browser
+  pane's JS `fetch` from the target origin.
 - Mainnet: launch 16 Sept, chain 5042. Chainlink docs name `explorer.arc.io`; the RPC is unpublished.
 
 ## Recent changes — files touched and why
 
-- `contracts/src/oracles/ChainlinkCreOracle.sol` + `test/ChainlinkCreOracle.t.sol` (20 tests, incl. e2e
-  settle) + `script/DeployCreOracle.s.sol` + `broadcast/DeployCreOracle.s.sol/5042002/`.
-- `cre/` — `price-relay` workflow (bun, outside the pnpm workspace), `report.ts` byte-checked
-  against `cast abi-encode`, `project.yaml`, README.
-- `deployments/arc-testnet.json` — `chainlinkCreOracle`, `creForwarder`, `markets[]`.
-- `scripts/wire-deployment.mjs` — `OPTIONAL_WEB` keys (`chainlinkCreOracle`), zero when absent.
-- `apps/web/src/lib/chain.ts` (+`chainlinkCreOracle`), `lib/data/live.ts` (`oracleNameFor`, CRE feed
-  labels), `test/oracle-name.test.ts`.
-- `vercel.json` — `web...` filter. `.github/workflows/keeper.yml` — new.
-- Docs: RUNBOOK (Stork dead, CRE section, markets, GH keeper, **Arc mainnet** section), deployments
-  README, SUBMISSION, DEMO, `packages/mcp/.env.example`.
+- **This branch (`claude/cre-login-error-5472df`):**
+  - `contracts/script/OpenMarket.s.sol` + `test/OpenMarket.t.sol` (14 tests). It checks, then prints
+    `cast send` commands, ids and the `markets[]` entry, and sends nothing because of the precompile trap.
+    The tests send the printed calldata and assert the predicted ids. Checked live on testnet: it
+    refuses the CRE adapter (`NoValue`) and, with `SKIP_FEED_CHECK`, predicts market 2.
+  - `.github/workflows/keeper.yml` — matrix per network; mainnet reads the `ARC_MAINNET_RPC_URL` variable
+    and the `KEEPER_PRIVATE_KEY_MAINNET` secret; chain-id guard on file and RPC. The step script ran locally in
+    all four paths (testnet run, mainnet absent, mainnet without RPC → red, wrong chain → red).
+  - `apps/web`: `ResolutionPanel`, `ClaimList`, agents `Row` pass the network's `ChainFacts` to
+    `AddressLink` (they linked testnet's explorer on mainnet).
+  - Docs: `cre/README.md` (install the CLI, access status, simulate command), RUNBOOK (CRE status,
+    the checked market script, the keeper matrix and a note that the schedule never fired, the mainnet funding table and order).
+- Earlier: `ChainlinkCreOracle` + tests + deploy script, `cre/price-relay`, deployments `markets[]`,
+  `wire-deployment.mjs` optional keys, web `chainlinkCreOracle`, `vercel.json`.
 
 ## Key decisions
 
@@ -114,22 +126,34 @@ Neither process runs anywhere hosted; whoever launches one sets its env.
 - **Markets opened before the relay runs.** Harmless: the keeper waits, and after voidTimeout anyone voids
   with full refunds.
 - **Keeper on GitHub Actions**: no raw key ever passed through the agent; the operator sets the secret.
+- **Market script prints, never broadcasts** — forced by the precompile, and it keeps the signing
+  step in `cast` where the keystore prompt already lives.
+- **Mainnet funds go to the existing deployer address** (same keystore, same address on every chain)
+  plus a fresh keeper key. 10 USDC to the deployer and 1 to the keeper.
 
 ## Traps
 
 - `vercel link` appends `.env*` to `.gitignore`, which would ignore `.env.example`. Revert it.
 - `vercel env` needs the worktree linked (`vercel link --yes --project hunch-vpm --scope rajkaria67-1831s-projects`).
-- **18 vs 6 decimals**; `| tee` without pipefail; empty forge-std in a new worktree; `graph build --network`
-  rewrites the manifest.
+- **18 vs 6 decimals**; `| tee` without pipefail; **empty forge-std in a new worktree** (`git submodule
+  update --init --recursive`); `graph build --network` rewrites the manifest.
+- `forge fmt --root contracts <path>` ignores `--root` for path args. Run `forge fmt <path>` from `contracts/`.
+- **forge + Arc USDC transfers = `StackUnderflow`**; send with `cast`.
 - Web `/m/[id]` has `dynamicParams = false` — a new market id needs a redeploy.
+- `cre account access` and `cre workflow simulate` prompt; pass `--non-interactive --trigger-index 0`
+  to simulate, and run `access` yourself.
 
 ## Next steps
 
-1. ~~Merge PR #10~~ — **merged 2026-09-13** (`b1a1218`); production redeploys from `main`.
-2. **Operator (CRE):** `cre login` → `cre account access` → once granted, `cre workflow deploy price-relay
-   --target production-settings` (from `cre/`) → `setExpectedWorkflowId`/`setExpectedAuthor` on the adapter → `lock()`.
-   Needed before 2026-09-15 16:00 UTC for BTC market to resolve (else void after +3 d, refunds).
-3. **Operator (keeper):** `cast wallet new`, fund ~1 USDC, `gh secret set KEEPER_PRIVATE_KEY`.
-4. Browser-verify the production board/market pages and walk a real wallet stake (needs a human wallet).
-5. Confirm `erc-8004-arc-testnet` reaches head.
-6. Mainnet after 16 Sept: RUNBOOK "Arc mainnet" section.
+1. **Operator, today:** run `cre account access` in a real terminal (it prompts). Nothing else unblocks
+   the BTC market before 2026-09-15 16:00 UTC.
+2. **Once access is granted:** from `cre/`, `cre workflow deploy price-relay --target
+   production-settings` → `setExpectedWorkflowId` (and/or `setExpectedAuthor`) with `--account
+   arc-deployer` → `cast call … read(bytes32)` shows a price / `PriceRelayed` log → `lock()`.
+3. **Keeper:** the secret is set. Fund `0x652EA9d40724A35e7FAA323e9b5053b6fbf1611a` with testnet USDC,
+   merge this branch, then confirm `gh run list --workflow keeper.yml --event schedule` is non-empty and
+   `settle (testnet)` says `live`.
+4. Walk a real wallet stake on production (approve → enter → claim) — needs a human wallet.
+5. Re-check `erc-8004-arc-testnet` `_meta.block` against head (`cast block-number --rpc-url
+   https://rpc.testnet.arc.io`). The rate varies too much for an ETA.
+6. Mainnet on/after 16 Sept: RUNBOOK "Arc mainnet", in order.

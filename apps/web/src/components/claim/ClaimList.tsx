@@ -8,7 +8,7 @@ import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { AddressLink } from '@/components/market/AddressLink';
 import { friendlyError } from '@/components/market/EntryFlow';
 import { Amount, Badge, Button, EmptyState, Panel, PanelHeader, Stat } from '@/components/ui/primitives';
-import { isDeployed } from '@/lib/chain';
+import { NETWORKS, isDeployed } from '@/lib/chain';
 import type { ClaimReason, ClaimableItem, ClaimableView } from '@/lib/data/types';
 import { settlerAbi } from '@/lib/wallet/abi';
 import { useNetwork } from '@/lib/wallet/network';
@@ -171,6 +171,7 @@ export function ClaimList() {
 
 function ClaimRow({ item, onDone }: { item: ClaimableItem; onDone: () => void }) {
   const wallet = useWallet();
+  const { network } = useNetwork();
   const pull = useWriteContract();
   const receipt = useWaitForTransactionReceipt({
     hash: pull.data,
@@ -205,7 +206,7 @@ function ClaimRow({ item, onDone }: { item: ClaimableItem; onDone: () => void })
               {part.label} <Amount value={item.breakdown[part.key]} className="text-paper" />
             </span>
           ))}
-          <AddressLink address={item.settler} className="text-xs" />
+          <AddressLink address={item.settler} className="text-xs" chain={NETWORKS[network].facts} />
         </p>
       </div>
 

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 import { AddressLink } from '@/components/market/AddressLink';
 import { Amount, Badge, EmptyState, Panel, PanelHeader, Percent } from '@/components/ui/primitives';
-import { NETWORKS } from '@/lib/chain';
+import { NETWORKS, type ChainFacts } from '@/lib/chain';
 import { dataSourceFor } from '@/lib/data';
 import { selectedNetwork } from '@/lib/network-server';
 import type { AgentRow } from '@/lib/data/types';
@@ -86,7 +86,7 @@ export default async function AgentsPage() {
               </thead>
               <tbody>
                 {agents.map((agent, index) => (
-                  <Row key={agent.address} agent={agent} rank={index + 1} />
+                  <Row key={agent.address} agent={agent} rank={index + 1} chain={facts} />
                 ))}
               </tbody>
             </table>
@@ -132,7 +132,7 @@ export default async function AgentsPage() {
   );
 }
 
-function Row({ agent, rank }: { agent: AgentRow; rank: number }) {
+function Row({ agent, rank, chain }: { agent: AgentRow; rank: number; chain: ChainFacts }) {
   return (
     <tr className="border-b border-edge/60 last:border-0">
       <th scope="row" className="px-4 py-3 text-left font-normal sm:px-5">
@@ -152,7 +152,7 @@ function Row({ agent, rank }: { agent: AgentRow; rank: number }) {
               )}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2">
-              <AddressLink address={agent.address} className="text-xs" />
+              <AddressLink address={agent.address} className="text-xs" chain={chain} />
               {agent.agentId === null ? (
                 <span className="num text-xs text-faint">no ERC-8004 identity</span>
               ) : (

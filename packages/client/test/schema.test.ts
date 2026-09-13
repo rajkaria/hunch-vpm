@@ -5,6 +5,7 @@ import {
   agentsQuery,
   marketPositionsQuery,
   marketQuery,
+  ownerPositionsQuery,
   positionQuery,
   unclaimedWinnersQuery,
   walletPositionsQuery,
@@ -32,6 +33,7 @@ describe('the venue queries', () => {
     ['market positions', marketPositionsQuery()],
     ['unclaimed winners', unclaimedWinnersQuery()],
     ['wallet positions', walletPositionsQuery()],
+    ['owner positions', ownerPositionsQuery()],
     ['wallet residue', walletResidueQuery()],
   ];
 

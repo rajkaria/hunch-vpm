@@ -236,6 +236,31 @@ On a **classic** market `earned` is `null` too — nothing vests there, ever, an
 "nothing has vested yet" on a market where nothing ever will. `payoutIfOutcomeWins` is still
 defined: it is the flat pool share the classic rule pays.
 
+## `positions(wallet)`
+
+Everything a wallet holds or has held, across every market, newest first.
+
+```ts
+const held = await client.positions('0x2222…2222');
+
+for (const position of held.positions) {
+  position.market;     // the market it sits in, decoded in full
+  position.createdAt;  // unix seconds the entry landed
+  position.finalized;  // whether `accepted` is fixed yet
+  position.claimed;    // claimed positions are listed too
+}
+held.index.block;      // the index head this answer was read at
+```
+
+This is the portfolio question, and it is wider than `claimable` on purpose. A wallet with three
+live positions and nothing settled has nothing to claim, and an empty claim list reads as money
+gone — so nothing is filtered out here: open, unfinalized, settled and claimed positions are all
+listed. Use `claimable` for what can be pulled right now, and the rail's `positions` verb when you
+want each one priced.
+
+The collection is paged by `id`, which is stable under `skip`, and ordered by entry time once it is
+all in; two entries from the same block fall back to the settler's position order.
+
 ## `claimable(wallet)`
 
 Everything ready to pull, across every market, with totals.

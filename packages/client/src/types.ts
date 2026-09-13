@@ -500,3 +500,17 @@ export interface MarketBook {
   voidedStaleAge: bigint | null;
   index: IndexStatus;
 }
+
+/** A position with the moment it entered, as the portfolio read returns it. */
+export interface OwnedPosition extends Position {
+  /** Unix seconds the entry landed. */
+  createdAt: bigint;
+}
+
+/** Everything one wallet holds or has held. */
+export interface WalletPositions {
+  wallet: Address;
+  /** Newest first. Claimed and unfinalized positions are included. */
+  positions: OwnedPosition[];
+  index: IndexStatus;
+}

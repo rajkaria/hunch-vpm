@@ -239,17 +239,18 @@ pnpm verify
 
 | Suite | Tests | Measured by |
 |---|---|---|
-| `contracts` (Foundry, 11 suites) | 59 | `forge test --root contracts` |
-| `packages/client` | 232 | `pnpm --filter @hunch-vpm/client test` |
+| `contracts` (Foundry, 13 suites) | 93 | `forge test --root contracts` |
+| `packages/client` | 242 | `pnpm --filter @hunch-vpm/client test` |
 | `packages/agentkit-tier` | 224 | `pnpm --filter @hunch-vpm/agentkit-tier test` |
-| `agent` | 185 | `pnpm --filter @hunch-vpm/agent test` |
+| `agent` | 214 | `pnpm --filter @hunch-vpm/agent test` |
 | `packages/mcp` | 182 | `pnpm --filter @hunch-vpm/mcp test` |
-| `apps/web` | 124 | `pnpm --filter @hunch-vpm/web test` |
+| `apps/web` | 251 | `pnpm --filter @hunch-vpm/web test` |
 | `subgraph-erc8004-arc` (node + matchstick) | 38 + 38 | `pnpm --filter @hunch-vpm/subgraph-erc8004-arc test` |
 | `subgraph` (matchstick) | 17 | `pnpm --filter @hunch-vpm/subgraph test` |
 | `substreams` (Rust, separate job) | 91 | `cd substreams && make check` |
+| `cre/price-relay` (bun, separate runtime) | 5 | `cd cre/price-relay && bun test` |
 
-**1,190 tests.** That is a reading taken on 12 September 2026 and it goes stale the moment
+**1,395 tests.** That is a reading taken on 13 September 2026 and it goes stale the moment
 anyone adds a test — the right-hand column is the source of truth.
 
 ## Running it

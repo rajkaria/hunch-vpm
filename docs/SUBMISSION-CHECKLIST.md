@@ -11,7 +11,7 @@ operator has. **[either]** is mechanical once its blocker clears.
 
 ## Done
 
-- [x] `pnpm verify` green — 1,190 tests across contracts, workspace and Substreams
+- [x] `pnpm verify` green — 1,395 tests across contracts, workspace, Substreams and the CRE relay
 - [x] CI green on all three jobs (`contracts`, `workspace`, `substreams`)
 - [x] Market surface deployed to production — <https://vpm.playhunch.xyz>
 - [x] Vercel project connected to the repository; a push to `main` redeploys

@@ -64,7 +64,7 @@ full, and the Contracts panel. That panel has exactly six rows, in this order:
 |---|---|
 | Settler | `0x0000…0000`, badged **not deployed** |
 | Market id on the settler | `1` |
-| Resolver | `0x0000…0000`, badged **not deployed** |
+| Resolver | `0xd9Fd…e3f3`, linked |
 | Settlement asset | `0x3600…0000`, linked |
 | Residue owner | `0x6D2a…5b42`, linked |
 | Network | Arc Testnet, chain id 5042002 |
@@ -83,13 +83,17 @@ panel names the oracle as a Chainlink Data Feed relayed by Chainlink CRE.
 
 **Honest note for the fixture recording.** The settler row reads `0x0000…0000`
 and carries a **not deployed** badge instead of a link, because a fixture market is not on
-chain —
-`addressExplorerUrl` returns `null` for the zero address rather than linking into an explorer
-that has nothing to show. Three addresses on this page do link, and only one of them is real:
-USDC (`0x3600…0000`) and the Stork oracle in the resolution spec (`0xacC0…fd62`) are live Arc
-testnet contracts; the residue owner (`0x6D2a…5b42`) is a fixture address, so that link opens
-an explorer page with nothing on it. Click the settlement asset, not the residue owner. The
-ERC-8004 registries on `/agents` are live too, and are the other safe click.
+chain — `addressExplorerUrl` returns `null` for the zero address rather than linking into an
+explorer that has nothing to show. Four addresses on this page do link, and two of them are
+ours: the resolver (`0xd9Fd…e3f3`) is the verified `FeedResolver` from
+`deployments/arc-testnet.json`, carried into the fixture by the address wiring, and USDC
+(`0x3600…0000`) is the chain's own token. The Stork oracle in the resolution spec
+(`0xacC0…fd62`) is a real Arc testnet contract whose feeds stopped updating on 2026-06-14 —
+the two real markets resolve through the Chainlink CRE adapter instead, and this is the one
+place the fixture and the deployment name different oracles. The residue owner
+(`0x6D2a…5b42`) is a fixture address, so that link opens an explorer page with nothing on it.
+Click the settlement asset or the resolver, not the residue owner. The ERC-8004 registries on
+`/agents` are live too, and are the other safe click.
 
 ---
 
@@ -295,6 +299,12 @@ which is one more reason to do the signing take separately from the narration ta
 the reading behind it, and how old that reading is. Show the keeper's balance before and after
 and it is visibly down by gas and up by nothing.
 
+**On Arc testnet today** `FeedResolver` is deployed and verified, so the `cast call` runs — but
+it answers *not ready*, and `resolve` reverts, because no price has landed yet: the Chainlink
+CRE workflow that relays the feed is written and simulated, and deploying it waits on Chainlink
+granting our organisation deploy access. Record the `preview` line if you like; do not record
+a `resolve` that reverts. Until the relay is live, the fixture replay above is the resolve take.
+
 ---
 
 ## 6. The same market under the other rule
@@ -322,9 +332,10 @@ The early position took the unpopular side nine days out and is paid for it. A b
 entering now takes almost nothing with it, because almost nothing lands after it to vest in.
 On Hunch's own tape — 5,291 resolved markets, 779,549 trades — last-decile winners captured a
 median 70.1% of the losing pool and early winners were diluted by a median 38.7%; under this
-rule those figures are 0.08% and 0.00%. Those five figures are the whitepaper's, carried into
-this repo through `.ocean/SPEC.md`; they are measurements of the production venue's history and
-nothing in this repository recomputes them. Say "measured on Hunch's tape", not "we measured".
+rule those figures are 0.08% and 0.00%. Those five figures are the whitepaper's (§13.4, the
+replay that produced them is there too); they are measurements of the production venue's
+history and nothing in this repository recomputes them. Say "measured on Hunch's tape", not
+"we measured".
 
 **Honest note.** The comparator's arithmetic runs on integers in the browser and is tested
 against hand-computed values in `apps/web/test/vpm.test.ts`. It is the same rule the contract
@@ -348,12 +359,19 @@ factory, not the resolver's owner — can move a position that is not theirs. Th
 suite asserts that last part directly, by having an address with no position try every method
 on every path.
 
-**Do not say "it is live" or "it is on Arc".** It is not deployed. The contracts build and pass
-59 Foundry tests, the subgraphs compile and pass their mapping tests, the surface renders from
-a fixture dataset, and every committed contract address is the zero placeholder. There is no
-hosted URL either: `vpm.playhunch.xyz` is the name reserved for it in `docs/RUNBOOK.md` and it
-does not resolve. "Built for Arc, ready to deploy, nothing deployed yet" is both the true
-sentence and the stronger one — a judge who checks will find exactly that.
+**Say "it is live on Arc testnet", and say exactly that.** The five contracts and the Chainlink
+CRE oracle adapter are deployed to Arc testnet and verified on Arcscan
+(`deployments/arc-testnet.json` is the record), two markets are open on the vested settler —
+BTC / USD ≥ $77,000 and ETH / USD ≥ $2,500 — both subgraphs are published in Subgraph Studio and
+indexing them, and <https://vpm.playhunch.xyz> is in production reading the real book. **Do not
+say "it is on Arc mainnet".** Mainnet is not deployed: there is no `deployments/` file for it,
+every mainnet address is the zero placeholder, and the toggle's mainnet side serves the fixture
+dataset and says so. **Do not say "a market has resolved".** None has. The CRE workflow that
+relays the price is written and simulated, and deploying it waits on Chainlink granting deploy
+access; until a price lands the resolver reports not ready and the keeper waits rather than
+voiding. "Live end to end on testnet, mainnet when Arc mainnet launches, first resolution
+pending the relay" is both the true sentence and the stronger one — a judge who checks will
+find exactly that.
 
 **On screen for the close.** `/docs`, or the board. Not a terminal.
 
@@ -361,19 +379,22 @@ sentence and the stronger one — a judge who checks will find exactly that.
 
 ## Deployed instead
 
-| Beat | Runs on fixtures today | Changes with a deployment |
-|---|---|---|
-| 1 | Yes | The settler and resolver rows become explorer links to verified sources instead of `0x0000…0000` with a **not deployed** badge, and the residue owner stops being a fixture address |
-| 2 | Yes, against a stubbed AgentBook | A real AgentBook address turns the registry read from a stub into a lookup; byte-level interop with AgentKit's own client is still unproven |
-| 3 | Yes | `HUNCH_MODE=live` reads the real subgraph and buys real quotes; the table is identical |
-| 4 | Yes | `enter` becomes two real transactions; the position appears in the subgraph and on the page from the index rather than the fixture replay |
-| 5 | Yes | `FeedResolver.resolve()` can actually be sent from an unrelated key, which is the whole point of the beat |
-| 6 | Yes | Both settlers deployed makes the comparison a query over a shared `specId` rather than a model |
-| 7 | Yes | — |
+Arc testnet is deployed, so "deployed" is now the default for most of the script. This table
+says, per beat, what the testnet recording shows today and what is still to come.
 
-Beats 1, 6 and 7 are visually identical either way. Beats 3 and 4 are identical in shape.
-Beat 5 is the one worth re-recording once the contracts are up, and beat 2 is the one whose
-caveat has to be spoken either way.
+| Beat | On fixtures | On Arc testnet today | Still to come |
+|---|---|---|---|
+| 1 | Settler `0x0000…0000` with a **not deployed** badge; fixture residue owner | The two real markets; settler, resolver, factory and oracle all link to verified sources | Mainnet, when Arc mainnet launches |
+| 2 | Against a stubbed AgentBook | The same — the registry read is a stub on every network | A real AgentBook address turns the stub into a lookup; byte-level interop with AgentKit's own client is still unproven |
+| 3 | Dry-run, fixture quotes | `HUNCH_MODE=live` reads the published subgraph; the table is identical in shape | A funded Circle Agent Wallet, so the quotes are actually paid — the agent has not yet run live |
+| 4 | Fixture replay | Through the surface, approve + `enter` are two real transactions and the position appears on the page from the index | The agent's own `enter` lines, which need the funded wallet from beat 3 |
+| 5 | Fixture replay of freeze, feed, resolve, claim | `preview` runs against the verified `FeedResolver` and answers *not ready* | The CRE relay landing a price, so `resolve` can be sent from an unrelated key — the point of the beat |
+| 6 | A model of the classic settler, in the browser | The same — the open markets are on the vested settler only | A classic market on the shared `specId`, so the comparison is a query rather than a model |
+| 7 | — | — | — |
+
+Beats 1, 4 and 7 are stronger on testnet and cost nothing to re-record there. Beats 3 and 6 are
+identical in shape either way. Beat 5 is the one worth re-recording once the relay is live, and
+beat 2 is the one whose caveat has to be spoken either way.
 
 ## Commands used, in order
 

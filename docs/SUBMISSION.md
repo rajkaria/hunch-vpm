@@ -156,10 +156,16 @@ are separate states throughout, since arriving connected-but-elsewhere is the li
 
 **<https://hunch-vpm.vercel.app>** — the market surface, in production, public.
 
-It serves a **replayed fixture dataset**, and it says so in a banner on every page, because no
-contract is deployed. The transactional surface is complete and gated on deployment: every
-control that would send a transaction says the settler is not deployed yet rather than
-pretending otherwise. Every book on it is replayed through the settler's own rules, so the
+The settlement layer is **deployed to Arc testnet** and every contract is verified on Arcscan —
+VestedParimutuel `0xC743…2Eec`, ClassicParimutuel `0x2160…0D57`, FeedResolver `0xd9Fd…e3f3`,
+MarketFactory `0x0380…2f07`, and the StorkOracle adapter `0x5938…4287`
+(`deployments/arc-testnet.json`).
+
+The surface still serves a **replayed fixture dataset**, and says so in a banner on every page,
+because neither subgraph is published yet, so there is no index for it to read. A header toggle
+switches between Arc testnet and Arc mainnet, and each network reads its own index. Fixture
+markets carry no on-chain settler, so every control that would send a transaction from one says
+there is nothing to send rather than pretending otherwise. Every book on it is replayed through the settler's own rules, so the
 arithmetic is real even though the markets are not. Addresses that are not real render as
 `0x0000…0000` with a **not deployed** badge rather than linking into an explorer that has
 nothing to show.
@@ -171,12 +177,11 @@ Three addresses on the surface are live Arc testnet contracts and do link: USDC
 
 A submission that hides this is worse than one that says it.
 
-1. **Nothing of ours is deployed on-chain.** Every contract address in committed configuration
-   is the zero address, deliberately. `deployments/` has no address file, and a network with
-   no file has not been deployed to — absence means "not deployed", never "look somewhere
-   else".
-2. **Neither subgraph is deployed.** `erc8004-arc` could be deployed today — Arc's registries
-   are live and their addresses are committed. `hunch-vpm` waits on step 1.
+1. **Nothing is deployed to Arc mainnet.** Testnet is deployed and verified; mainnet has no
+   `deployments/` file and every mainnet address is the zero placeholder. Mainnet's RPC,
+   explorer and a verified oracle are not published yet.
+2. **Neither subgraph is published to Studio.** Both build against Arc testnet with the real
+   addresses and start blocks wired in; publishing waits only on a Studio deploy key.
 3. **Substreams cannot stream.** It builds, tests and packs, but there is **no public Firehose
    endpoint for Arc yet**. This is an external dependency, not an omission — `make run` has
    nothing to connect to until it is resolved.
@@ -184,11 +189,9 @@ A submission that hides this is worse than one that says it.
    today. The full research → decide → enter → monitor → claim loop is exercised against
    fixtures. The keeper is the same: dry run unless `--live`, and `--live` without a key is
    refused rather than silently downgraded.
-5. **Positions are not read per address from the live index.** The portfolio works on
-   fixtures. `@hunch-vpm/client` has no positions-by-owner read, and writing that query
-   against a subgraph nobody has deployed would be untested speculation in the data path. The
-   subgraph already indexes `Position` with an owner, so the fix is a client read and one
-   call — not a schema change.
+5. **The live read path is untested against a real index.** The client's `positions(wallet)`
+   read and the web's live source are covered against recorded responses and checked against
+   the subgraph schema, but no index has been queried yet, because none is published.
 6. **Selfie Check is not implemented.** The AgentKit verifier is wired and tested against
    fixtures; the canonical AgentBook address is a placeholder, and the viem-backed verifier
    refuses to start when handed it rather than pretending.

@@ -3,7 +3,8 @@
 One JSON per network, so the app, the subgraph and the client all read the same addresses from
 one place.
 
-**This directory is empty of address files, and that is the honest state: nothing is deployed.**
+**Arc testnet is deployed** (`arc-testnet.json`, 2026-09-13, every contract verified on Arcscan). **Arc mainnet is
+not** — it has no file, and absence means not deployed.
 
 ## Where the file comes from
 
@@ -57,12 +58,35 @@ against the one you expected.
 
 | File | Network | Chain ID | Present |
 |---|---|---|---|
-| `arc-testnet.json` | Arc testnet | 5042002 | no — not deployed |
+| `arc-testnet.json` | Arc testnet | 5042002 | **yes** — blocks 61840931-61840932 |
 | `arc-mainnet.json` | Arc mainnet | 5042 | no — not deployed |
 
 Each file carries `chainId`, `vestedParimutuel`, `classicParimutuel`, `priceOracle`,
-`feedResolver` and `marketFactory`. A network that has not been deployed to has no file —
+`feedResolver` and `marketFactory`, plus `startBlocks` per indexed contract — written by the
+wiring script from forge's receipts in `contracts/broadcast/Deploy.s.sol/<chainId>/`, so the
+record survives even without the broadcast directory.
+
+## Arc testnet, as deployed
+
+| Contract | Address |
+|---|---|
+| VestedParimutuel | [`0xC743940C75619f65F6178b7e49c0C3A0bE012Eec`](https://testnet.arcscan.app/address/0xC743940C75619f65F6178b7e49c0C3A0bE012Eec) |
+| ClassicParimutuel | [`0x21603b2176aB8495A81fF3B3bE853C64f3860D57`](https://testnet.arcscan.app/address/0x21603b2176aB8495A81fF3B3bE853C64f3860D57) |
+| StorkOracle (IPriceOracle adapter) | [`0x5938F12246642aE8E6A47Efbaa72a454EafD4287`](https://testnet.arcscan.app/address/0x5938F12246642aE8E6A47Efbaa72a454EafD4287) |
+| FeedResolver | [`0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3`](https://testnet.arcscan.app/address/0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3) |
+| MarketFactory | [`0x0380C6FC136AE64432558e407706a5C7E7652f07`](https://testnet.arcscan.app/address/0x0380C6FC136AE64432558e407706a5C7E7652f07) |
+
+Deployer `0x763e4A729cF78e33B8fdE36B9b6f29bBce120dE0`; the whole deploy cost ~0.123 USDC of gas.
+
+A network that has not been deployed to has no file —
 absence means "not deployed yet", never "look somewhere else".
 
-Six places read these addresses and none of them are wired to each other; `docs/RUNBOOK.md`
-lists all six under "Wiring the addresses through".
+Six places read these addresses and none imports another. After cutting the file:
+
+```bash
+ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io pnpm wire:testnet   # writes the four committed readers
+pnpm wire:check                                                     # what pnpm verify runs
+```
+
+The script refuses a file whose `chainId` is wrong or whose addresses hold no code, and prints
+the two environment readers (MCP, agent) it cannot write. `docs/RUNBOOK.md` lists all six.

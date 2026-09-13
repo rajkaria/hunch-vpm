@@ -240,7 +240,7 @@ is split at settlement. Its books therefore carry a principal and nothing else, 
 
 ## Parameters
 
-Nothing is deployed on Arc yet, so no address is baked into the manifest. Both
+No address is baked into the manifest — the Arc testnet ones are in `deployments/arc-testnet.json`. Both
 block-reading modules take one query-string parameter:
 
 ```

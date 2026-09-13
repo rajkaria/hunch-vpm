@@ -21,8 +21,10 @@ file thin — an index, never session prose.**
   ERC-20 interface at `0x3600…0000` (`balanceOf`, `approve`, `transferFrom` — how every stake
   moves) it is **6**. Raw values differ by exactly 10^12. Verified on-chain; this file said
   "six, not 18" until it was checked, and it was wrong.
-- **Nothing of ours is deployed.** Every committed contract address is the zero address, on
-  purpose. A network with no file in `deployments/` has not been deployed to.
+- **Arc testnet is deployed; mainnet is not.** `deployments/arc-testnet.json` is the record
+  (five contracts, verified on Arcscan, blocks 61840931-2). A network with no file has not been
+  deployed to, and every reader holds the zero address for it. `pnpm wire:testnet` carries the
+  file into the four committed readers; `pnpm wire:check` (in verify) fails on drift.
 - **The venue never custodies.** `@hunch-vpm/client` returns unsigned calldata and holds no
   key; the invariant suite asserts no contract lets anyone move a user's funds.
 - **No secret is ever committed.** `.env` and `.env.*` are excluded, `.env.example` is kept.

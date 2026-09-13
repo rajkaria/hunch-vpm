@@ -4,7 +4,8 @@ A demo agent for the Vested Parimutuel. It reads the book through The Graph, dec
 to do with it, and settles in USDC on Arc through a Circle Agent Wallet, paying for its
 research with Gateway Nanopayments.
 
-**That is what live mode does. Nothing is deployed, so nothing has run live.** Everything
+**That is what live mode does. The settlers are deployed to Arc testnet
+(`deployments/arc-testnet.json`), but the agent has not run live yet.** Everything
 described below has been exercised in dry-run — no key, no network, no contracts — which is
 the default and the only mode that works today.
 

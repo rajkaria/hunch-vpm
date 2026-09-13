@@ -81,11 +81,11 @@ Arc testnet (`chainId 5042002`, RPC `https://rpc.testnet.arc.io`, explorer
 `https://testnet.arcscan.app`) is the default chain. USDC is Arc's **native gas token**, exposed
 behind the ERC-20 interface at `0x3600000000000000000000000000000000000000` with 6 decimals.
 
-The ERC-8004 registries on Arc testnet are real addresses and are filled in. **Our own contracts are
-not deployed yet**, so `vestedParimutuel`, `classicParimutuel`, `marketFactory` and `feedResolver`
-default to the zero placeholder. Building calldata against a placeholder throws rather than
-producing a transaction to nowhere — pass real addresses from `deployments/<network>.json` once
-they exist.
+On Arc testnet every default is real: the ERC-8004 registries, and our own `vestedParimutuel`,
+`classicParimutuel`, `marketFactory` and `feedResolver`, carried in from
+`deployments/arc-testnet.json` by `pnpm wire:testnet` (the tests pin them to that file). **Arc
+mainnet is not deployed**, so its defaults are the zero placeholder, and building calldata against
+a placeholder throws rather than producing a transaction to nowhere.
 
 ### Reading the open vintage
 

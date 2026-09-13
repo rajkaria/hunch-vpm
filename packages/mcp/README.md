@@ -53,8 +53,8 @@ protocol channel.
         // Required: the server will not start without a venue subgraph to read.
         "HUNCH_VPM_SUBGRAPH_URL": "https://api.studio.thegraph.com/query/<id>/hunch-vpm/<version>",
         "HUNCH_VPM_ERC8004_SUBGRAPH_URL": "https://api.studio.thegraph.com/query/<id>/erc8004-arc/<version>",
-        // Placeholder: nothing is deployed yet, and the server says so on startup.
-        "HUNCH_VPM_SETTLER_ADDRESS": "0x0000000000000000000000000000000000000000"
+        // The Arc testnet settler, from deployments/arc-testnet.json.
+        "HUNCH_VPM_SETTLER_ADDRESS": "0xC743940C75619f65F6178b7e49c0C3A0bE012Eec"
       }
     }
   }

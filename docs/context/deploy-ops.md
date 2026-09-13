@@ -3,11 +3,15 @@ feature: deploy-ops
 globs:
   - scripts/**
   - contracts/script/**
+  - contracts/broadcast/**
   - contracts/foundry.toml
   - contracts/.gitignore
   - deployments/**
   - agent/src/keeper/**
   - subgraph/package.json
+  - subgraph/networks.json
+  - subgraph/subgraph.yaml
+  - subgraph/tools/**
   - subgraph-erc8004-arc/networks.json
   - docs/RUNBOOK.md
   - .github/workflows/**
@@ -17,92 +21,96 @@ updated: 2026-09-13
 
 # Deploying and operating the venue
 
-Covers the deploy path and preflight, the resolver keeper, subgraph deploys, CI, and Vercel.
+Covers the deploy path and preflight, address wiring, the resolver keeper, subgraph deploys, CI,
+and Vercel.
 
 ## Current state — what's working, deployed, broken
 
-**Deployed:** web surface only — Vercel project `hunch-vpm`, <https://hunch-vpm.vercel.app>,
-auto-deploys on push to `main`. **Nothing on-chain; neither subgraph published.**
+**Deployed on Arc testnet (2026-09-13), all five verified on Arcscan** — `deployments/arc-testnet.json`:
 
-**Merged (PR after PR #8):** the native-USDC decimals fix (native 18 / ERC-20 6), documented
-testnet RPC, Blockscout verification with no API key, the dry-run ignore fix, and Studio deploy
-scripts. `pnpm verify` PASSED end to end with nothing else running. Never run verify alongside
-`next dev` or a forge simulation — an agent test times out under that load.
+| Contract | Address | Block |
+|---|---|---|
+| VestedParimutuel | `0xC743940C75619f65F6178b7e49c0C3A0bE012Eec` | 61840931 |
+| ClassicParimutuel | `0x21603b2176aB8495A81fF3B3bE853C64f3860D57` | 61840931 |
+| StorkOracle (adapter) | `0x5938F12246642aE8E6A47Efbaa72a454EafD4287` | 61840931 |
+| FeedResolver | `0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3` | 61840931 |
+| MarketFactory | `0x0380C6FC136AE64432558e407706a5C7E7652f07` | 61840932 |
 
-**Testnet deploy is proven viable without spending anything.** Stock Foundry 1.5.1 simulated
-`Deploy.s.sol` against live Arc testnet (no `--broadcast`): all five contracts deploy, ~7.35M
-gas. Forge prints "0.30 ETH" — on Arc that is native USDC at 18 decimals, so **~0.30 USDC**.
-`arc-forge` (Arc's Foundry fork in their docs) is not required for this script.
+Deployer / keystore `arc-deployer` = `0x763e4A729cF78e33B8fdE36B9b6f29bBce120dE0` (password file
+`~/.foundry/arc-deployer.password`, mode 600, outside the repo). Gas ~0.123 USDC; ~19.88 left.
 
-**Preflight run live against testnet:** RPC ok, chain 5042002, Stork has code, Blockscout
-verification ready. Still refuses: **no keystore** (`~/.foundry/keystores/` empty), no Graph
-Studio auth on the machine.
+**Wired** into all four committed readers by `pnpm wire:testnet`; `pnpm wire:check` is a
+`pnpm verify` stage. Web: `https://hunch-vpm.vercel.app` (auto-deploys `main`).
+
+**Not done:** neither subgraph is published — both **build** against arc-testnet with the real
+addresses; only the Studio deploy key is missing (operator: create `hunch-vpm-arc-testnet` and
+`erc8004-arc-testnet` on Arc Testnet in Studio, run `graph auth`). Env readers not set anywhere:
+MCP `HUNCH_VPM_SETTLER_ADDRESS`/`HUNCH_VPM_CLASSIC_SETTLER_ADDRESS`, agent `HUNCH_SETTLER`.
+Nothing on mainnet. No market opened yet.
 
 ## Verified Arc facts (checked 2026-09-13, primary sources + on-chain)
 
-- **Native USDC = 18 decimals; ERC-20 view at `0x3600…0000` = 6.** One balance. On-chain: one
-  holder reads 3,141,473,534,331 via `balanceOf` and ×10^12 via `eth_getBalance`. The repo said
-  "6 natively" everywhere — wrong, now fixed in web/client/mcp/keeper/preflight/docs.
-- **Testnet:** chain 5042002, RPC `https://rpc.testnet.arc.io` (docs' primary; old
-  `rpc.testnet.arc.network` still answers), explorer `https://testnet.arcscan.app`, faucet
-  `https://faucet.circle.com`.
-- **Arcscan is Blockscout** → verify with `--verifier blockscout --verifier-url
-  https://testnet.arcscan.app/api/`, **no API key**. The old `ARCSCAN_API_KEY` never existed and
-  the preflight would have skipped verification silently.
-- **Mainnet: public launch 16 Sept 2026** (Circle pressroom). Chain id **5042** (The Graph lists
-  slug `arc` = eip155:5042). **Official RPC and explorer NOT published yet** — Circle publishes
-  at launch. Ignore third-party "mainnet RPC" claims.
-- **Oracles on mainnet: none verified.** Stork lists Arc testnet only. Arc joined Chainlink Scale
-  (Data Feeds among products) but no Arc feed addresses found. **Mainnet markets cannot resolve
-  until one exists.**
-- **ERC-8004 registries:** testnet addresses live (have code); no mainnet addresses published.
-- **The Graph:** supports `arc-testnet` and `arc`; graph-cli 0.98.1 builds `--network arc`.
+- **Native USDC = 18 decimals; ERC-20 view at `0x3600…0000` = 6.** One balance (faucet's 20 USDC
+  read 20e18 native, 20e6 via `balanceOf`).
+- **Testnet:** chain 5042002, RPC `https://rpc.testnet.arc.io`, explorer
+  `https://testnet.arcscan.app`, faucet `https://faucet.circle.com` (CAPTCHA — operator only;
+  no faucet MCP exists).
+- **Arcscan is Blockscout**, no API key. It **rate-limits** (`Too many requests`): `--verify`
+  and `forge verify-contract` both failed on FeedResolver/MarketFactory. **Blockscout v2
+  standard-input** (`POST /api/v2/smart-contracts/<addr>/verification/via/standard-input`,
+  multipart, `compiler_version=v0.8.28+commit.7893614a`) worked first try.
+- **Mainnet: public launch 16 Sept 2026**, chain 5042; RPC/explorer unpublished; **no verified
+  oracle** — mainnet markets cannot resolve until one exists.
+- **The Graph:** `arc-testnet` and `arc`; graph-cli 0.98.1. Studio subgraphs must be created in
+  the UI before `graph deploy`.
 
 ## Recent changes — files touched and why
 
-- `scripts/preflight-deploy.sh` — native balance read at 18 decimals; Blockscout verify flags
-  always printed for testnet, mainnet only once `ARC_VERIFIER_URL` is set.
-- `contracts/foundry.toml` — removed the `[etherscan]` entry that demanded a nonexistent key.
-- `contracts/.gitignore` — `broadcast/*/dry-run/` never matched (forge nests two levels); now
-  `broadcast/**/dry-run/`. Real broadcast receipts stay trackable.
-- `subgraph/package.json` — `deploy:testnet`/`deploy:mainnet` target Subgraph Studio (old script
-  used the retired hosted service).
-- `agent/src/keeper/cli.ts` — native currency 18 decimals.
-- `docs/RUNBOOK.md`, `deployments/README.md`, `docs/SUBMISSION-CHECKLIST.md` — Blockscout
-  verification, no API key, stock-forge note with the ~0.30 USDC figure.
+- `scripts/preflight-deploy.sh` — Foundry 1.5 lists `name (Local)`, so the exact match refused a
+  real keystore; `ETH_PASSWORD` password-file support; **compiles first** (empty forge-std in a
+  worktree failed the first deploy); balance floor 0.35 USDC; printed command has `pipefail`
+  (`| tee` had masked forge's failure) and `pnpm wire:<network>`.
+- `scripts/wire-deployment.mjs` (new) — writes `subgraph/networks.json`, `subgraph/subgraph.yaml`,
+  `packages/client/src/addresses.ts`, `apps/web/src/lib/chain.ts` (+ web-only `priceOracle`) from
+  `deployments/arc-<net>.json`; derives `startBlocks` from broadcast receipts; checks code via RPC;
+  `--check` mode. `scripts/verify.sh` runs it.
+- `package.json` — `wire:testnet|mainnet|check`, `preflight:testnet`.
+- `subgraph/package.json` + `subgraph/tools/with-network.mjs` — `deploy:testnet`/`deploy:mainnet`
+  via the restore-the-manifest wrapper; stray `deploy:studio` (slug `hunch-vpm`) removed.
+- `contracts/broadcast/Deploy.s.sol/5042002/` — receipts committed (no secrets; sensitive values go
+  to ignored `cache/`).
+- Docs: RUNBOOK, deployments/README, SUBMISSION, SUBMISSION-CHECKLIST, DEMO, package READMEs,
+  CLAUDE.md standing fact.
 
 ## Key decisions — choices and trade-offs, why X over Y
 
-- **Keeper is its own binary**, not an agent subcommand — it holds gas money only.
-- **`--allow-void` OFF by default** — a wrongly voided market cannot be un-voided.
-- **Dry run default; `--live` without a key is an error**, never a silent downgrade.
-- **No guessed mainnet RPC/explorer/oracle anywhere.** Each is config until published.
-- **Verification on the CLI, not in foundry.toml** — Blockscout needs no key, and a toml entry
-  interpolating an unset key only fails at the worst moment.
-- **`.ocean/` stays untracked** (repo gitignores it; public submission repo).
+- **Wiring is a script with a check, not a table in the runbook** — four readers that cannot
+  import each other drift silently; the gate now fails instead.
+- **Start blocks live in the deployments file**, so the record outlives `broadcast/`.
+- **Keeper is its own binary**; **`--allow-void` OFF by default**; **dry run default**.
+- **No guessed mainnet RPC/explorer/oracle anywhere.**
+- **Verification on the CLI / v2 API, not in foundry.toml.**
+- **Deploy key never enters the repo or chat** — `graph auth` stores it in graph-cli's config.
 
 ## Traps that cost money
 
-- RPC answering but on the **wrong chain** (preflight checks).
+- RPC answering on the **wrong chain** (preflight checks; wire script checks code).
 - **18 vs 6 decimals** — `cast balance`/gas are 18; `balanceOf`/stakes are 6.
 - Unrecognised `ORACLE_KIND` silently becomes Stork.
-- `Deploy.s.sol` writes no file — cut the JSON out of `deploy.log`.
-- `forge script --account` prompts for the password interactively — the operator runs it, or a
-  `--password-file` is supplied.
-- `graph build --network X` **rewrites `subgraph.yaml` in place** — never run it as a probe.
+- **Empty `contracts/lib/forge-std` in a new worktree** — `git submodule update --init --recursive`.
+- **`| tee` without `pipefail`** reports a failed deploy as success.
+- `Deploy.s.sol` writes no file — cut the JSON from `deploy.log`, then `pnpm wire:testnet`.
+- `graph build/deploy --network X` **rewrites `subgraph.yaml` in place** — use the package scripts.
 
 ## Next steps
 
-1. **Testnet deploy:** operator runs `cast wallet import arc-deployer --interactive`, funds it
-   (~1 USDC is plenty) at faucet.circle.com, `export ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io`,
-   `bash scripts/preflight-deploy.sh arc-deployer testnet`, runs the printed command.
-2. Cut `deployments/arc-testnet.json`; wire addresses through the **six** places in RUNBOOK;
-   record head block as subgraph `startBlock`.
-3. **Subgraphs (testnet):** operator creates two Studio subgraphs (Arc Testnet) and runs
-   `npx graph auth <key>` locally. Deploy `erc8004-arc` now (addresses already set), `hunch-vpm`
-   after step 3. Put the keyless Studio query URLs in Vercel env.
-4. Run `node agent/dist/keeper/main.js --help` once; then schedule it on testnet.
-5. **Mainnet, after 16 Sept:** take chain id/RPC/explorer from docs.arc.io; set
-   `ARC_MAINNET_RPC_URL`, `NEXT_PUBLIC_ARC_RPC_URL`, `NEXT_PUBLIC_ARC_EXPLORER_URL`,
-   `ARC_VERIFIER_URL`; **obtain a verified oracle** (Stork mainnet address or a Chainlink Arc
-   feed) — blocking; mainnet subgraph slug `arc`; ERC-8004 mainnet addresses when published.
+1. **Operator:** in Subgraph Studio create `hunch-vpm-arc-testnet` and `erc8004-arc-testnet`
+   (network Arc Testnet); run `pnpm --dir subgraph exec graph auth <DEPLOY_KEY>` locally.
+2. Deploy both: `pnpm --filter @hunch-vpm/subgraph-erc8004-arc run deploy:arc-testnet --version-label v0.0.1`
+   and `pnpm --dir subgraph run deploy:testnet --version-label v0.0.1`.
+3. Put the keyless Studio query URLs in Vercel as `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` and
+   `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET`; open a market via MarketFactory, add its id to
+   `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`.
+4. Set the env readers (MCP, agent); run the keeper `--help`, then schedule it on testnet.
+5. **Mainnet, after 16 Sept:** RPC/explorer from docs.arc.io, a verified oracle (blocking), then
+   the same preflight → deploy → `pnpm wire:mainnet` path.

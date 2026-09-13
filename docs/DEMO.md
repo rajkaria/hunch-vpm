@@ -3,8 +3,8 @@
 A four-minute walkthrough in seven beats. Each beat below gives the exact command or click,
 what appears on screen, and the one sentence that says why it is there.
 
-The whole thing runs with nothing deployed. The web surface serves a replayed fixture
-dataset when `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` is unset, and the agent's dry-run mode is its
+The whole thing runs with no index. The web surface serves a replayed fixture dataset for any
+network with no subgraph URL set, and the agent's dry-run mode is its
 default — no key, no network, no contracts. Where a beat looks different against a real
 deployment, the beat says so, and [Deployed instead](#deployed-instead) collects those
 differences in one place.
@@ -77,8 +77,9 @@ market needs. Clicking the settlement asset opens USDC at
 contracts on Arc, and the stake asset is the chain's own gas token. Every number on this page
 is derived from the settler's bookkeeping, not from a quoted price.
 
-**Honest note for the fixture recording.** The settler and resolver rows read `0x0000…0000`
-and carry a **not deployed** badge instead of a link, because nothing of ours is deployed —
+**Honest note for the fixture recording.** The settler row reads `0x0000…0000`
+and carries a **not deployed** badge instead of a link, because a fixture market is not on
+chain —
 `addressExplorerUrl` returns `null` for the zero address rather than linking into an explorer
 that has nothing to show. Three addresses on this page do link, and only one of them is real:
 USDC (`0x3600…0000`) and the Stork oracle in the resolution spec (`0xacC0…fd62`) are live Arc

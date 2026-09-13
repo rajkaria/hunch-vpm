@@ -10,7 +10,7 @@ file thin — an index, never session prose.**
 | Doc | Covers |
 |---|---|
 | [`docs/context/web-venue.md`](docs/context/web-venue.md) | `apps/web` — wallet layer, testnet/mainnet toggle, staking and the acceptance estimate, claims, portfolio, design system |
-| [`docs/context/deploy-ops.md`](docs/context/deploy-ops.md) | Deploy path and preflight, verified Arc network facts, subgraph deploys, the resolver keeper, CI, Vercel |
+| [`docs/context/deploy-ops.md`](docs/context/deploy-ops.md) | Deploy path and preflight, address wiring (`pnpm wire:*`), verified Arc facts, the testnet deployment, subgraph deploys, the keeper, CI, Vercel env |
 | [`docs/context/submission.md`](docs/context/submission.md) | ETHOnline 2026 submission, checklist and demo script |
 
 ## Standing facts

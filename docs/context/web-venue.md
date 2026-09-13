@@ -37,7 +37,8 @@ empty), tests updated. Stake amounts correctly stay on the 6-decimal ERC-20 unit
 
 **Contracts are live on Arc testnet and wired** into `lib/chain.ts` (`ARC_TESTNET_ADDRESSES`,
 incl. `priceOracle`), so testnet transactional controls target real contracts. **Both networks
-still serve fixtures** because no subgraph is published; fixture markets use the zero settler, so
+still serve fixtures in production** until PR #10 merges (Vercel already has
+`NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` = the Studio query URL; no market ids yet); fixture markets use the zero settler, so
 their controls stay gated. The transactional path is **still untested end-to-end on chain**.
 
 **Per-network data layer (done, this session):** `dataSourceFor(network)` in `lib/data/index.ts`
@@ -96,8 +97,8 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
 
 ## Next steps
 
-1. After the subgraphs are published (deploy-ops next steps 1-3): set the `_TESTNET` env vars in
-   Vercel, open a market, and walk approve → enter → partial → close vintage → claim → void on
-   real testnet with a funded wallet; browser-verify the portfolio against the live index.
+1. After PR #10 merges and a market is opened + its id set in `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`
+   (deploy-ops next steps 1-3): browser-verify the live board, market page and portfolio on the
+   production URL, then walk approve → enter → partial → close vintage → claim → void on testnet.
 2. Pass the selected network's `ChainFacts` to client-side `AddressLink`s (StakePanel, ClaimList).
 3. After mainnet launch: mainnet RPC/explorer env, addresses via `pnpm wire:mainnet`; rate-limit the API routes.

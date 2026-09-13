@@ -42,13 +42,27 @@ Deployer / keystore `arc-deployer` = `0x763e4A729cF78e33B8fdE36B9b6f29bBce120dE0
 **Wired** into all four committed readers by `pnpm wire:testnet`; `pnpm wire:check` is a
 `pnpm verify` stage. Web: `https://hunch-vpm.vercel.app` (auto-deploys `main`).
 
-**Subgraph `hunch-vpm-arc-testnet` deployed to Studio (v0.0.1, 2026-09-13)** — query URL
-`https://api.studio.thegraph.com/query/1760242/hunch-vpm-arc-testnet/v0.0.1` (keyless, rate-limited),
-deployment `QmTK35SdoArmdU8oHmH4uNeKhZbaLUnvzVGJfLyKMdBgXs`; synced to head, no indexing errors.
-Deployed to Studio, not *published* to the decentralized network. `graph auth` is set on this
-machine. **`erc8004-arc-testnet`** fails with "Subgraph not found" until it is created in Studio.
-Env readers not set anywhere: MCP `HUNCH_VPM_SETTLER_ADDRESS`/`HUNCH_VPM_CLASSIC_SETTLER_ADDRESS`,
-agent `HUNCH_SETTLER`. Vercel env not set yet. Nothing on mainnet. No market opened yet.
+**Subgraph `hunch-vpm-arc-testnet` deployed to Studio (v0.0.1)** — query URL
+`https://api.studio.thegraph.com/query/1760242/hunch-vpm-arc-testnet/v0.0.1` (keyless,
+rate-limited), deployment `QmTK35SdoArmdU8oHmH4uNeKhZbaLUnvzVGJfLyKMdBgXs`, synced to head, no
+indexing errors. `graph auth` is configured on this machine (account-wide Studio deploy key).
+
+**Not done / blocked:**
+- **`erc8004-arc-testnet` deploy fails: "Subgraph not found"** — twice, with the same account key.
+  The Studio subgraph does not exist under that exact slug (created under another name, or not
+  created). Needs the exact slug from Studio.
+- **Neither subgraph is *published* to The Graph Network.** Publishing is an on-chain transaction
+  (Arbitrum One, wallet signature, GRT signal) done in Studio's Publish button or `graph publish`
+  (opens a signing web UI). A deploy key cannot publish, and it must be the operator's wallet.
+  Also unconfirmed whether the Network indexes Arc testnet at all. Studio query URLs are enough
+  for testnet.
+- **Vercel env:** `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` set on production, preview and
+  development for project `hunch-vpm` (no other vars existed). **It only takes effect once PR #10 is
+  merged** — current `main` reads only the unsuffixed name, so production is unchanged until then.
+  `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` is unset (no market exists), so the live board will be empty.
+- The Studio deploy key was pasted in chat — operator will rotate it, then re-run `graph auth`.
+- Env readers not set anywhere: MCP `HUNCH_VPM_SETTLER_ADDRESS`/`HUNCH_VPM_CLASSIC_SETTLER_ADDRESS`,
+  agent `HUNCH_SETTLER`. Nothing on mainnet. No market opened yet.
 
 ## Verified Arc facts (checked 2026-09-13, primary sources + on-chain)
 
@@ -79,6 +93,8 @@ agent `HUNCH_SETTLER`. Vercel env not set yet. Nothing on mainnet. No market ope
 - `package.json` — `wire:testnet|mainnet|check`, `preflight:testnet`.
 - `subgraph/package.json` + `subgraph/tools/with-network.mjs` — `deploy:testnet`/`deploy:mainnet`
   via the restore-the-manifest wrapper; stray `deploy:studio` (slug `hunch-vpm`) removed.
+- `subgraph/.gitignore` — ignores `subgraph.yaml.orig` (the wrapper's recovery copy).
+- Worktree is `vercel link`ed to `hunch-vpm` (`.vercel/`, `.env.local` — both ignored; never commit).
 - `contracts/broadcast/Deploy.s.sol/5042002/` — receipts committed (no secrets; sensitive values go
   to ignored `cache/`).
 - Docs: RUNBOOK, deployments/README, SUBMISSION, SUBMISSION-CHECKLIST, DEMO, package READMEs,
@@ -106,13 +122,17 @@ agent `HUNCH_SETTLER`. Vercel env not set yet. Nothing on mainnet. No market ope
 
 ## Next steps
 
-1. **Operator:** create `erc8004-arc-testnet` (Arc Testnet) in Studio. hunch-vpm is done. The
-   deploy key was pasted in chat on 2026-09-13 — rotate it in Studio, then re-run `graph auth`.
-2. Deploy both: `pnpm --filter @hunch-vpm/subgraph-erc8004-arc run deploy:arc-testnet --version-label v0.0.1`
-   and `pnpm --dir subgraph run deploy:testnet --version-label v0.0.1`.
-3. Put the keyless Studio query URLs in Vercel as `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` and
-   `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET`; open a market via MarketFactory, add its id to
-   `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`.
-4. Set the env readers (MCP, agent); run the keeper `--help`, then schedule it on testnet.
-5. **Mainnet, after 16 Sept:** RPC/explorer from docs.arc.io, a verified oracle (blocking), then
-   the same preflight → deploy → `pnpm wire:mainnet` path.
+1. **Merge PR #10** (https://github.com/rajkaria/hunch-vpm/pull/10) — production then builds with
+   the per-network data layer and the testnet subgraph URL already set in Vercel.
+2. **Get the exact ERC-8004 Studio slug**, deploy it with
+   `pnpm --filter @hunch-vpm/subgraph-erc8004-arc exec node tools/with-network.mjs arc-testnet deploy <slug> --node https://api.studio.thegraph.com/deploy/ --version-label v0.0.1`
+   (or fix the slug in its `deploy:arc-testnet` script), then set
+   `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` in Vercel (production, preview, development).
+3. **Open the first market** through MarketFactory `0x0380…2f07` with the funded deployer; add its
+   subgraph id (`0xc743940c75619f65f6178b7e49c0c3a0be012eec-0`) to
+   `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` in Vercel; redeploy; confirm the board goes live.
+4. Operator: rotate the Studio deploy key, re-run `graph auth`; decide on publishing to the
+   Network (wallet + GRT) — optional for testnet.
+5. Set the MCP/agent env readers; run the keeper `--help`, then schedule it on testnet.
+6. **Mainnet, after 16 Sept:** RPC/explorer from docs.arc.io, a verified oracle (blocking), then
+   preflight → deploy → `pnpm wire:mainnet`.

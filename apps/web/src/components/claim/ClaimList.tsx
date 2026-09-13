@@ -236,14 +236,16 @@ function ClaimRow({ item, onDone }: { item: ClaimableItem; onDone: () => void })
             <Button
               size="sm"
               disabled={pull.isPending || receipt.isLoading}
-              onClick={() =>
+              onClick={async () => {
+                if (!(await wallet.ensureActiveChain())) return;
                 pull.writeContract({
                   address: item.settler as `0x${string}`,
                   abi: settlerAbi,
                   functionName: item.call,
                   args: [item.argument],
-                })
-              }
+                  chainId: wallet.chainId,
+                });
+              }}
             >
               {pull.isPending ? 'Check your wallet…' : receipt.isLoading ? 'Pulling…' : 'Pull'}
             </Button>

@@ -1,6 +1,8 @@
 'use client';
 
-import { useWallet } from '@/lib/wallet/useWallet';
+import { useEffect, useRef } from 'react';
+
+import { switchPromptKey, useWallet } from '@/lib/wallet/useWallet';
 
 /**
  * One line, site-wide, when the connected wallet is on the wrong chain.
@@ -18,6 +20,24 @@ import { useWallet } from '@/lib/wallet/useWallet';
 export function NetworkBanner() {
   const wallet = useWallet();
 
+  /*
+   * Open the wallet's own switch prompt as soon as a wrong chain is seen.
+   *
+   * This banner is mounted exactly once, in the root layout, which makes it the
+   * one place this can live without two components racing to open two popups.
+   * `switchPromptKey` limits it to once per (account, wallet chain, selected
+   * chain), so a dismissed prompt stays dismissed until something changes — the
+   * banner and every send button still offer the switch after that.
+   */
+  const prompted = useRef<string | null>(null);
+  const key = switchPromptKey(wallet);
+  const { switchToActive } = wallet;
+  useEffect(() => {
+    if (key === null || prompted.current === key) return;
+    prompted.current = key;
+    switchToActive();
+  }, [key, switchToActive]);
+
   if (!wallet.wrongChain) return null;
 
   return (
@@ -31,11 +51,14 @@ export function NetworkBanner() {
       <span className="text-muted">
         Your wallet is on another chain. Everything here settles on {wallet.chainName}, and nothing
         can be sent until you switch.
+        {wallet.canSwitch
+          ? ''
+          : ` ${wallet.chainName} has no public RPC yet, so your wallet cannot be asked to add it.`}
       </span>
       <button
         type="button"
         onClick={wallet.switchToActive}
-        disabled={wallet.switching}
+        disabled={wallet.switching || !wallet.canSwitch}
         className="ml-auto shrink-0 rounded-pill bg-coral px-3.5 py-1.5 text-[13px] font-semibold text-ink transition-opacity hover:opacity-90 disabled:opacity-60"
       >
         {wallet.switching ? 'Check your wallet…' : `Switch to ${wallet.chainName}`}

@@ -20,14 +20,19 @@ const wallet = vi.hoisted(() => ({
     noWallet: true,
     disconnect: () => {},
     switchToActive: () => {},
+    ensureActiveChain: async () => true,
     error: null,
     chainName: 'Arc Testnet',
+    chainId: 5042002,
+    walletChainId: null as number | null,
+    canSwitch: true,
   },
 }));
 
-vi.mock('@/lib/wallet/useWallet', () => ({
+vi.mock('@/lib/wallet/useWallet', async (importOriginal) => ({
+  // The pure rules (`switchPromptKey`, `truncateAddress`) stay real; only the hook is stubbed.
+  ...(await importOriginal<typeof import('@/lib/wallet/useWallet')>()),
   useWallet: () => wallet.current,
-  truncateAddress: (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`,
 }));
 
 import { NetworkBanner } from '@/components/wallet/NetworkBanner';

@@ -42,11 +42,13 @@ Deployer / keystore `arc-deployer` = `0x763e4A729cF78e33B8fdE36B9b6f29bBce120dE0
 **Wired** into all four committed readers by `pnpm wire:testnet`; `pnpm wire:check` is a
 `pnpm verify` stage. Web: `https://hunch-vpm.vercel.app` (auto-deploys `main`).
 
-**Not done:** neither subgraph is published — both **build** against arc-testnet with the real
-addresses; only the Studio deploy key is missing (operator: create `hunch-vpm-arc-testnet` and
-`erc8004-arc-testnet` on Arc Testnet in Studio, run `graph auth`). Env readers not set anywhere:
-MCP `HUNCH_VPM_SETTLER_ADDRESS`/`HUNCH_VPM_CLASSIC_SETTLER_ADDRESS`, agent `HUNCH_SETTLER`.
-Nothing on mainnet. No market opened yet.
+**Subgraph `hunch-vpm-arc-testnet` deployed to Studio (v0.0.1, 2026-09-13)** — query URL
+`https://api.studio.thegraph.com/query/1760242/hunch-vpm-arc-testnet/v0.0.1` (keyless, rate-limited),
+deployment `QmTK35SdoArmdU8oHmH4uNeKhZbaLUnvzVGJfLyKMdBgXs`; synced to head, no indexing errors.
+Deployed to Studio, not *published* to the decentralized network. `graph auth` is set on this
+machine. **`erc8004-arc-testnet`** fails with "Subgraph not found" until it is created in Studio.
+Env readers not set anywhere: MCP `HUNCH_VPM_SETTLER_ADDRESS`/`HUNCH_VPM_CLASSIC_SETTLER_ADDRESS`,
+agent `HUNCH_SETTLER`. Vercel env not set yet. Nothing on mainnet. No market opened yet.
 
 ## Verified Arc facts (checked 2026-09-13, primary sources + on-chain)
 
@@ -104,8 +106,8 @@ Nothing on mainnet. No market opened yet.
 
 ## Next steps
 
-1. **Operator:** in Subgraph Studio create `hunch-vpm-arc-testnet` and `erc8004-arc-testnet`
-   (network Arc Testnet); run `pnpm --dir subgraph exec graph auth <DEPLOY_KEY>` locally.
+1. **Operator:** create `erc8004-arc-testnet` (Arc Testnet) in Studio. hunch-vpm is done. The
+   deploy key was pasted in chat on 2026-09-13 — rotate it in Studio, then re-run `graph auth`.
 2. Deploy both: `pnpm --filter @hunch-vpm/subgraph-erc8004-arc run deploy:arc-testnet --version-label v0.0.1`
    and `pnpm --dir subgraph run deploy:testnet --version-label v0.0.1`.
 3. Put the keyless Studio query URLs in Vercel as `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` and

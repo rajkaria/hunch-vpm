@@ -14,6 +14,7 @@ function snapshot(over: Partial<SpecSnapshot> = {}): SpecSnapshot {
     age: 5n,
     resolutionTime: FROZEN,
     maxStaleness: 60n,
+    hasReading: true,
     ...over,
   };
 }
@@ -76,6 +77,17 @@ describe('decide', () => {
     expect(action.kind).toBe('too-early');
   });
 
+  it('waits on a feed that has never been written, and does not count it a failure', () => {
+    // The CRE relay before its first delivery: the oracle reverts, so preview does too.
+    const action = decide(snapshot({ hasReading: false, ready: false, age: 0n }), FROZEN, { allowVoid: true });
+    expect(action.kind).toBe('no-reading');
+    expect(callFor(action)).toBeNull();
+  });
+
+  it('still reports too-early for an unwritten feed before the freeze', () => {
+    expect(decide(snapshot({ hasReading: false, ready: false }), FROZEN - 10n).kind).toBe('too-early');
+  });
+
   it('never voids a spec that is already settled', () => {
     const action = decide(snapshot({ settled: true, ready: false, age: 99_999n }), FROZEN, {
       allowVoid: true,
@@ -92,6 +104,23 @@ describe('callFor', () => {
     expect(callFor({ kind: 'unknown', why: '' })).toBeNull();
     expect(callFor({ kind: 'stale', why: '', age: 1n, bound: 0n })).toBeNull();
     expect(callFor({ kind: 'too-early', why: '', secondsRemaining: 1n })).toBeNull();
+    expect(callFor({ kind: 'no-reading', why: '' })).toBeNull();
+  });
+});
+
+describe('isRevert', () => {
+  it('recognises a contract revert and nothing else', async () => {
+    const { isRevert } = await import('../src/keeper/chain.js');
+    const { ContractFunctionExecutionError, ContractFunctionRevertedError, HttpRequestError } = await import('viem');
+    const abi = [{ type: 'function', name: 'preview', inputs: [], outputs: [], stateMutability: 'view' }] as const;
+
+    const reverted = new ContractFunctionExecutionError(
+      new ContractFunctionRevertedError({ abi, functionName: 'preview', data: '0x24c4fe43' }),
+      { abi, functionName: 'preview' },
+    );
+    expect(isRevert(reverted)).toBe(true);
+    expect(isRevert(new HttpRequestError({ url: 'https://rpc.example' }))).toBe(false);
+    expect(isRevert(new Error('socket hang up'))).toBe(false);
   });
 });
 

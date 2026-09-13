@@ -35,11 +35,20 @@ the wallet); **WalletConnect** using main Hunch's public project id; **non-dismi
 empty), tests updated. Stake amounts correctly stay on the 6-decimal ERC-20 unit
 (`USDC_DECIMALS`).
 
-**Contracts are live on Arc testnet and wired** into `lib/chain.ts` (`ARC_TESTNET_ADDRESSES`,
-incl. `priceOracle`), so testnet transactional controls target real contracts. **Both networks
-still serve fixtures in production** until PR #10 merges (Vercel already has
-`NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` = the Studio query URL; no market ids yet); fixture markets use the zero settler, so
-their controls stay gated. The transactional path is **still untested end-to-end on chain**.
+**Arc testnet is LIVE in production (PR #10 merged 2026-09-13).** Contracts are wired into
+`lib/chain.ts` (incl. `priceOracle` and `chainlinkCreOracle`). Vercel has both testnet subgraph URLs
+and `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` (`…-0` BTC/USD, `…-1` ETH/USD). The board, market
+pages and `/api/positions` read the Studio subgraph. The resolution panel names "Chainlink Data
+Feed, relayed by Chainlink CRE". Mainnet still serves fixtures. **Still untested:** a real wallet
+signing approve → enter → claim through the UI. It needs a human wallet; seed positions exist
+only for the deployer.
+
+**Client bundling (fixed, PR #10):** `live.ts` imports `@hunch-vpm/client` by a **literal**
+specifier (`@ts-ignore`). Web `build`/`dev` scripts build the client first, and vitest aliases it
+to source. The old variable specifier kept the client out of Vercel's function trace, so every
+live read returned 502 "The index could not be reached". Local `next start` can't catch this,
+because node_modules resolve locally. Check a Vercel deployment (`vercel curl … --deployment`,
+since previews are auth-protected).
 
 **Per-network data layer (done, this session):** `dataSourceFor(network)` in `lib/data/index.ts`
 reads `NEXT_PUBLIC_{HUNCH_SUBGRAPH_URL,ERC8004_SUBGRAPH_URL,HUNCH_MARKET_IDS}_{TESTNET,MAINNET}`

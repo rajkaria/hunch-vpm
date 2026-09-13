@@ -1,4 +1,12 @@
-import { createPublicClient, createWalletClient, http, type Address, type Hex } from 'viem';
+import {
+  BaseError,
+  ContractFunctionRevertedError,
+  createPublicClient,
+  createWalletClient,
+  http,
+  type Address,
+  type Hex,
+} from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { SpecReader, SpecWriter } from './run.js';
@@ -69,6 +77,11 @@ const resolverAbi = [
 
 const ZERO = '0x0000000000000000000000000000000000000000';
 
+/** True when the node executed the call and it reverted, as opposed to the call not arriving. */
+export function isRevert(error: unknown): boolean {
+  return error instanceof BaseError && error.walk((e) => e instanceof ContractFunctionRevertedError) !== null;
+}
+
 export function createChainReader(options: {
   rpcUrl: string;
   resolver: Address;
@@ -82,12 +95,17 @@ export function createChainReader(options: {
       const common = { address: options.resolver, abi: resolverAbi } as const;
 
       const [preview, spec, settled] = await Promise.all([
-        client.readContract({ ...common, functionName: 'preview', args: [id] }),
+        client.readContract({ ...common, functionName: 'preview', args: [id] }).catch((error: unknown) => {
+          // `preview` reads the oracle, and an oracle with no reading for the feed reverts.
+          // Only a revert means that; a transport error still fails the read.
+          if (isRevert(error)) return null;
+          throw error;
+        }),
         client.readContract({ ...common, functionName: 'specs', args: [id] }),
         client.readContract({ ...common, functionName: 'settled', args: [id] }),
       ]);
 
-      const [ready, winner, , age] = preview;
+      const [ready, winner, , age] = preview ?? [false, 0, 0n, 0n];
       const [settler, , , , , , resolutionTime, maxStaleness] = spec;
 
       return {
@@ -98,6 +116,7 @@ export function createChainReader(options: {
         age,
         resolutionTime: BigInt(resolutionTime),
         maxStaleness: BigInt(maxStaleness),
+        hasReading: preview !== null,
       };
     },
   };

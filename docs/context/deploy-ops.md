@@ -60,7 +60,11 @@ to its source. Turbopack cannot alias the client to source, because it won't map
 workspace packages.
 
 **Keeper:** `.github/workflows/keeper.yml` runs every 10 min on `main`, taking spec ids from the
-deployments file. It is a dry run until the `KEEPER_PRIVATE_KEY` repo secret exists.
+deployments file. It is a dry run until the `KEEPER_PRIVATE_KEY` repo secret exists. The first manual
+run (34746039686) failed: `preview` reverts while the CRE oracle has no reading, and the keeper
+counted that as a failed read. Fixed on branch `claude/keeper-no-reading`: a revert becomes
+`hasReading: false` and the new `no-reading` action, which waits and never voids. A local dry run
+against Arc testnet now reports `2 checked · 0 failed`, exit 0.
 
 **MCP/agent env:** `packages/mcp/.env.example` now carries the real testnet settlers and Studio
 URLs. The agent's `HUNCH_SETTLER` / `HUNCH_MARKET_IDS` values are documented in `agent/README.md` and the RUNBOOK.
@@ -121,7 +125,7 @@ Neither process runs anywhere hosted; whoever launches one sets its env.
 
 ## Next steps
 
-1. **Merge PR #10** → production builds with the per-network data layer and the market ids.
+1. ~~Merge PR #10~~ — **merged 2026-09-13** (`b1a1218`); production redeploys from `main`.
 2. **Operator (CRE):** `cre login` → `cre account access` → once granted, `cre workflow deploy price-relay
    --target production-settings` (from `cre/`) → `setExpectedWorkflowId`/`setExpectedAuthor` on the adapter → `lock()`.
    Needed before 2026-09-15 16:00 UTC for BTC market to resolve (else void after +3 d, refunds).

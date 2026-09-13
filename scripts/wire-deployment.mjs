@@ -315,7 +315,10 @@ function check(networks) {
     const problems = disagreements(network, want);
     const state = want.deployed ? "deployed" : "not deployed";
     if (problems.length === 0) {
-      console.log(`  ✓ Arc ${network} (${state}): every reader agrees with ${relative(ROOT, join(ROOT, deploymentPath(network)))}`);
+      const source = want.deployed
+        ? `agrees with ${relative(ROOT, join(ROOT, deploymentPath(network)))}`
+        : `holds the zero address, as it must with no ${deploymentPath(network)}`;
+      console.log(`  ✓ Arc ${network} (${state}): every reader ${source}`);
     } else {
       failed = true;
       console.log(`  ✗ Arc ${network} (${state}):\n    ${problems.join("\n    ")}`);

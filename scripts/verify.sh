@@ -17,6 +17,13 @@ else
   echo "==> contracts — not scaffolded yet, skipping"
 fi
 
+if command -v node >/dev/null && [ -f scripts/wire-deployment.mjs ]; then
+  # Four committed files hold the deployed addresses and none imports another.
+  # This fails the gate the moment one of them drifts from deployments/.
+  step "addresses — every reader agrees with deployments/"
+  run node scripts/wire-deployment.mjs --check
+fi
+
 if [ -f pnpm-workspace.yaml ] && [ -d node_modules ]; then
   step "workspace — typecheck"
   run pnpm -r --if-present typecheck

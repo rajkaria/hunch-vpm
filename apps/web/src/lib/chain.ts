@@ -66,11 +66,11 @@ export interface ContractAddresses {
 }
 
 export const ARC_TESTNET_ADDRESSES: ContractAddresses = {
-  // PLACEHOLDER until the settlers land in deployments/arc-testnet.json.
-  vestedParimutuel: UNDEPLOYED,
-  classicParimutuel: UNDEPLOYED,
-  marketFactory: UNDEPLOYED,
-  feedResolver: UNDEPLOYED,
+  // From deployments/arc-testnet.json, carried here by scripts/wire-deployment.mjs.
+  vestedParimutuel: '0xC743940C75619f65F6178b7e49c0C3A0bE012Eec',
+  classicParimutuel: '0x21603b2176aB8495A81fF3B3bE853C64f3860D57',
+  marketFactory: '0x0380C6FC136AE64432558e407706a5C7E7652f07',
+  feedResolver: '0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3',
   usdc: ARC_USDC,
   // ERC-8004 registries are live on Arc testnet and are not ours to deploy.
   identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e',

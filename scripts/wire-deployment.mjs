@@ -62,6 +62,12 @@ const NETWORKS = {
  */
 const WEB_ONLY = ["priceOracle"];
 
+/**
+ * Adapters added after the main deploy, by their own script. Optional: a deployment without one
+ * wires the zero address, so the web never names a provider the network does not have.
+ */
+const OPTIONAL_WEB = ["chainlinkCreOracle"];
+
 const FILES = {
   networks: "subgraph/networks.json",
   manifest: "subgraph/subgraph.yaml",
@@ -120,7 +126,7 @@ function expected(network, { write }) {
   const path = deploymentPath(network);
   if (!existsSync(join(ROOT, path))) {
     const zeros = Object.fromEntries(Object.keys(CONTRACTS).map((key) => [key, { address: ZERO, startBlock: 0 }]));
-    return { deployed: false, contracts: zeros, oracle: ZERO };
+    return { deployed: false, contracts: zeros, oracle: ZERO, optional: optionalAddresses({}) };
   }
 
   let deployment;
@@ -156,7 +162,18 @@ function expected(network, { write }) {
   const contracts = Object.fromEntries(
     Object.keys(CONTRACTS).map((key) => [key, { address: deployment[key], startBlock: blocks[key] }]),
   );
-  return { deployed: true, contracts, oracle: deployment.priceOracle, deployment };
+  for (const key of OPTIONAL_WEB) {
+    const address = deployment[key];
+    if (address !== undefined && (typeof address !== "string" || !ADDRESS.test(address))) {
+      throw new WireError(`${path}: ${key} is ${JSON.stringify(address)}, not an address`);
+    }
+  }
+  return { deployed: true, contracts, oracle: deployment.priceOracle, optional: optionalAddresses(deployment), deployment };
+}
+
+/** The optional adapters, zero where the deployment has none. */
+function optionalAddresses(deployment) {
+  return Object.fromEntries(OPTIONAL_WEB.map((key) => [key, deployment[key] ?? ZERO]));
 }
 
 /** key -> address, without the start blocks. */
@@ -198,7 +215,7 @@ function writeTsAddresses(file, opener, network, addresses, deployed) {
   let block = source.slice(start, end);
   for (const [key, address] of Object.entries(addresses)) {
     if (!tsKeyPattern(key).test(block)) throw new WireError(`${file}: no \`${key}:\` line inside \`${opener}\``);
-    const value = deployed ? `'${address}'` : "UNDEPLOYED";
+    const value = deployed && lower(address) !== ZERO ? `'${address}'` : "UNDEPLOYED";
     block = block.replace(tsKeyPattern(key), `$1${value},`);
   }
   // The placeholder comment above the settlers stops being true the moment they are wired.
@@ -253,9 +270,10 @@ function disagreements(network, want) {
   if (networks === undefined) throw new WireError(`${FILES.networks} has no "${spec.graphNetwork}" entry`);
 
   const client = readTsAddresses(FILES.client, spec.clientBlock);
-  const web = readTsAddresses(FILES.web, spec.webBlock, [...Object.keys(CONTRACTS), ...WEB_ONLY]);
+  const web = readTsAddresses(FILES.web, spec.webBlock, [...Object.keys(CONTRACTS), ...WEB_ONLY, ...OPTIONAL_WEB]);
   const manifest = spec.manifest ? readManifest() : null;
   compare(FILES.web, "priceOracle", web.priceOracle, want.oracle);
+  for (const key of OPTIONAL_WEB) compare(FILES.web, key, web[key], want.optional[key]);
 
   for (const [key, name] of Object.entries(CONTRACTS)) {
     const { address, startBlock } = want.contracts[key];
@@ -307,7 +325,7 @@ async function wire(network) {
     FILES.web,
     spec.webBlock,
     network,
-    { ...addressesOf(want.contracts), priceOracle: want.oracle },
+    { ...addressesOf(want.contracts), priceOracle: want.oracle, ...want.optional },
     want.deployed,
   );
   if (spec.manifest) writeManifest(want.contracts);

@@ -77,6 +77,10 @@ market needs. Clicking the settlement asset opens USDC at
 contracts on Arc, and the stake asset is the chain's own gas token. Every number on this page
 is derived from the settler's bookkeeping, not from a quoted price.
 
+**Prefer recording on Arc testnet**, where the board lists the two real markets (BTC / USD and
+ETH / USD). Their settler, factory and oracle all link to verified contracts, and the resolution
+panel names the oracle as a Chainlink Data Feed relayed by Chainlink CRE.
+
 **Honest note for the fixture recording.** The settler row reads `0x0000…0000`
 and carries a **not deployed** badge instead of a link, because a fixture market is not on
 chain —

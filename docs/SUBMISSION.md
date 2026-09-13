@@ -107,13 +107,13 @@ except the odds; here it has to reason about headroom and about what has already
 
 | Sponsor technology | How it is used | State |
 |---|---|---|
-| **Arc** | The settlement chain. Chain id `5042002` testnet / `5042` mainnet, with USDC as the **native gas token** — the stake asset and the gas asset are the same thing | Contracts written, built, tested; **not yet deployed** |
+| **Arc** | The settlement chain. Chain id `5042002` testnet / `5042` mainnet, with USDC as the **native gas token** — the stake asset and the gas asset are the same thing | **Deployed to Arc testnet and verified** on Arcscan; two markets open; mainnet not deployed |
 | **Circle** | USDC is the settlement asset throughout. The demo agent custodies through a **Circle Agent Wallet**; the entity secret is supplied already-encrypted so the raw secret never enters the process | Wired and tested in dry-run; not run live |
-| **The Graph** | Two subgraphs and a Substreams package. The venue subgraph computes derived decision quantities in the mapping | `erc8004-arc` is deployable today; `hunch-vpm` waits on contract addresses |
-| **ERC-8004** | Agent identity, reputation and validation, read from Arc's three live registries through the standardized schema | Registries are live on Arc testnet; subgraph not yet deployed |
+| **The Graph** | Two subgraphs and a Substreams package. The venue subgraph computes derived decision quantities in the mapping | Both live in Subgraph Studio on `arc-testnet` and published: `hunch-vpm-arc-testnet` (indexing both open markets) and `erc-8004-arc-testnet` |
+| **ERC-8004** | Agent identity, reputation and validation, read from Arc's three live registries through the standardized schema | Registries live on Arc testnet; `erc-8004-arc-testnet` subgraph deployed |
 | **World / AgentKit** | Human-backed agent verification against canonical AgentBook, used for **tiering** rather than exclusion | Verifier written and tested against fixtures; the canonical AgentBook address is a placeholder and the viem verifier refuses to start on it |
-| **Stork** | The shipped `IPriceOracle` adapter. The only provider with a published Arc testnet address today | Adapter written and tested |
-| **Chainlink** | A second adapter behind the same interface; needs only an address | Written and tested |
+| **Chainlink** | **The markets resolve from Chainlink Data Feeds.** Arc testnet has no Data Feeds, so a **CRE workflow** (`cre/price-relay`) reads ETH / USD and BTC / USD on Sepolia, and Chainlink's `KeystoneForwarder` on Arc delivers the DON-signed report to `ChainlinkCreOracle`. The adapter accepts only the production forwarder and a named workflow, and can lock its configuration. On Arc mainnet, `ChainlinkFeedOracle` reads the published feeds directly | Adapter deployed and verified (`0x68A7…c621`); both testnet markets resolve through it; workflow built and tested, **awaiting CRE deploy access** |
+| **Stork** | The first adapter, and the one the original deploy shipped | Written and tested. Stork's Arc testnet feeds stopped updating on 2026-06-14, so no market uses it |
 | **x402 / Gateway Nanopayments** | The agent pays per research quote rather than per subscription | Wired and tested in dry-run |
 
 > **Fill in before submitting:** the exact ETHOnline prize-track names this is entered under.
@@ -158,20 +158,27 @@ are separate states throughout, since arriving connected-but-elsewhere is the li
 
 The settlement layer is **deployed to Arc testnet** and every contract is verified on Arcscan —
 VestedParimutuel `0xC743…2Eec`, ClassicParimutuel `0x2160…0D57`, FeedResolver `0xd9Fd…e3f3`,
-MarketFactory `0x0380…2f07`, and the StorkOracle adapter `0x5938…4287`
+MarketFactory `0x0380…2f07`, and ChainlinkCreOracle `0x68A7…c621`
 (`deployments/arc-testnet.json`).
 
-The surface still serves a **replayed fixture dataset**, and says so in a banner on every page,
-because neither subgraph is published yet, so there is no index for it to read. A header toggle
-switches between Arc testnet and Arc mainnet, and each network reads its own index. Fixture
+**Arc testnet is live end to end.** Two markets are open, both seeded through MarketFactory and
+both resolving from Chainlink:
+
+- BTC / USD at or above $77,000 at 2026-09-15 16:00 UTC
+- ETH / USD at or above $2,500 at 2026-09-20 16:00 UTC
+
+The `hunch-vpm-arc-testnet` subgraph indexes them, and the board reads that subgraph. A
+scheduled keeper (`.github/workflows/keeper.yml`) settles each market once it freezes. Arc
+**mainnet** still serves a **replayed fixture dataset** and says so in a banner. A header toggle
+switches networks, and each one reads its own index. Fixture
 markets carry no on-chain settler, so every control that would send a transaction from one says
 there is nothing to send rather than pretending otherwise. Every book on it is replayed through the settler's own rules, so the
 arithmetic is real even though the markets are not. Addresses that are not real render as
 `0x0000…0000` with a **not deployed** badge rather than linking into an explorer that has
 nothing to show.
 
-Three addresses on the surface are live Arc testnet contracts and do link: USDC
-(`0x3600…0000`), the Stork oracle (`0xacC0…fd62`), and the ERC-8004 registries on `/agents`.
+On the mainnet fixtures, the addresses that do link are the ones live on either network: USDC
+(`0x3600…0000`) and the ERC-8004 registries on `/agents`.
 
 ## What is not done, stated plainly
 

@@ -75,8 +75,14 @@ record survives even without the broadcast directory.
 | StorkOracle (IPriceOracle adapter) | [`0x5938F12246642aE8E6A47Efbaa72a454EafD4287`](https://testnet.arcscan.app/address/0x5938F12246642aE8E6A47Efbaa72a454EafD4287) |
 | FeedResolver | [`0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3`](https://testnet.arcscan.app/address/0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3) |
 | MarketFactory | [`0x0380C6FC136AE64432558e407706a5C7E7652f07`](https://testnet.arcscan.app/address/0x0380C6FC136AE64432558e407706a5C7E7652f07) |
+| ChainlinkCreOracle (IPriceOracle + CRE IReceiver) | [`0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621`](https://testnet.arcscan.app/address/0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621) — added later by `script/DeployCreOracle.s.sol`, block 61,858,720 |
 
 Deployer `0x763e4A729cF78e33B8fdE36B9b6f29bBce120dE0`; the whole deploy cost ~0.123 USDC of gas.
+Stork's Arc testnet feeds stopped updating on 2026-06-14, so the markets resolve through
+`ChainlinkCreOracle` instead: Chainlink Data Feeds, relayed from Sepolia by a CRE workflow
+(`cre/`). `chainlinkCreOracle` and `creForwarder` are optional keys, and the wiring script carries
+the adapter into the web app. `markets` records every market opened on this network, and the
+keeper workflow reads its spec ids from there.
 
 A network that has not been deployed to has no file —
 absence means "not deployed yet", never "look somewhere else".

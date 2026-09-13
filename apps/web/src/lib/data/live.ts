@@ -21,7 +21,7 @@
  * state they already have to render anyway.
  */
 
-import { NETWORKS, type ContractAddresses, type NetworkId } from '../chain';
+import { isDeployed, NETWORKS, type ContractAddresses, type NetworkId } from '../chain';
 import { CHAINS } from '../wallet/chains';
 import { formatPrice } from '../units';
 import { formatUtcDate } from '../time';
@@ -359,11 +359,9 @@ function toSpec(spec: ClientResolutionSpec, addresses: ContractAddresses): Resol
   return {
     specId: spec.specId,
     oracle: spec.oracle,
-    // A spec names the ADAPTER it reads, not Stork's own contract, so that is what
-    // identifies it — the adapter this network's deployment shipped.
-    oracleName: spec.oracle.toLowerCase() === addresses.priceOracle.toLowerCase()
-      ? 'Stork, through the IPriceOracle adapter'
-      : `Oracle adapter at ${spec.oracle}`,
+    // A spec names the ADAPTER it reads, not the provider's own contract, so that is
+    // what identifies it — one of the adapters this network's deployment shipped.
+    oracleName: oracleNameFor(spec.oracle, addresses),
     feedKey: spec.feedKey,
     feedLabel: FEED_LABELS[spec.feedKey.toLowerCase()] ?? spec.feedKey,
     strike: spec.strike,
@@ -379,8 +377,23 @@ function toSpec(spec: ClientResolutionSpec, addresses: ContractAddresses): Resol
  * this deployment uses; anything else shows the key itself rather than a guess.
  */
 const FEED_LABELS: Record<string, string> = {
+  // Stork: keccak256 of its asset id.
   '0x7404e3d104ea7841c3d9e6fd20adfe99b4ad586bc08d8f3bd3afef894cf184de': 'ETHUSD',
+  // ChainlinkCreOracle: keccak256 of the source feed's own `description()`.
+  '0x62ddc8c5ffbd077b5a28e92efd10abcc58e66fb2a326401f0efd02e173ac1777': 'ETH / USD',
+  '0x0e3e290fbc572c3c2d1656bd757b05413d2fc62474d95064641dcabee325eb93': 'BTC / USD',
 };
+
+export function oracleNameFor(oracle: string, addresses: ContractAddresses): string {
+  const address = oracle.toLowerCase();
+  if (isDeployed(addresses.chainlinkCreOracle) && address === addresses.chainlinkCreOracle.toLowerCase()) {
+    return 'Chainlink Data Feed, relayed by Chainlink CRE';
+  }
+  if (isDeployed(addresses.priceOracle) && address === addresses.priceOracle.toLowerCase()) {
+    return 'Stork, through the IPriceOracle adapter';
+  }
+  return `Oracle adapter at ${oracle}`;
+}
 
 /**
  * A market has no title on chain: it has a spec. Say what the spec says, in a

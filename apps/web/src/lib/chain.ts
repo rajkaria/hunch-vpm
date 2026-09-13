@@ -60,6 +60,11 @@ export interface ContractAddresses {
   feedResolver: string;
   /** The IPriceOracle adapter this deployment's resolver reads — StorkOracle on Arc testnet. */
   priceOracle: string;
+  /**
+   * ChainlinkCreOracle: Chainlink Data Feeds relayed onto a chain that has none, by a CRE
+   * workflow through Chainlink's KeystoneForwarder. Arc testnet's markets resolve through it.
+   */
+  chainlinkCreOracle: string;
   usdc: string;
   identityRegistry: string;
   reputationRegistry: string;
@@ -74,6 +79,7 @@ export const ARC_TESTNET_ADDRESSES: ContractAddresses = {
   marketFactory: '0x0380C6FC136AE64432558e407706a5C7E7652f07',
   feedResolver: '0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3',
   priceOracle: '0x5938F12246642aE8E6A47Efbaa72a454EafD4287',
+  chainlinkCreOracle: '0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621',
   usdc: ARC_USDC,
   // ERC-8004 registries are live on Arc testnet and are not ours to deploy.
   identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e',
@@ -97,6 +103,8 @@ export const ARC_MAINNET_ADDRESSES: ContractAddresses = {
   marketFactory: UNDEPLOYED,
   feedResolver: UNDEPLOYED,
   priceOracle: UNDEPLOYED,
+  // Arc mainnet has Chainlink Data Feeds of its own, so it reads them directly and needs no relay.
+  chainlinkCreOracle: UNDEPLOYED,
   // USDC is at the same predeploy address on both Arc chains: it is the native
   // gas token exposed through an ERC-20 interface, not a deployed token.
   usdc: ARC_USDC,

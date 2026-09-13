@@ -281,10 +281,15 @@ Nothing below is required in dry-run.
 | `HUNCH_DEMO_TICK_S` | simulated seconds per round in dry-run (default 2700) |
 
 USDC is the stake asset *and* the gas token on Arc, at
-`0x3600000000000000000000000000000000000000`, 6 decimals through the ERC-20 interface. No
-contracts are deployed yet, so the settler defaults to
-`0x0000000000000000000000000000000000000000` and live mode refuses to start until
-`HUNCH_SETTLER` names a real one.
+`0x3600000000000000000000000000000000000000`, 6 decimals through the ERC-20 interface. The
+settler still defaults to the zero address, and live mode refuses to start until
+`HUNCH_SETTLER` names a real one. On Arc testnet, from `deployments/arc-testnet.json`:
+
+```sh
+HUNCH_SETTLER=0xC743940C75619f65F6178b7e49c0C3A0bE012Eec
+HUNCH_MARKET_IDS=0xc743940c75619f65f6178b7e49c0c3a0be012eec-0,0xc743940c75619f65f6178b7e49c0c3a0be012eec-1
+HUNCH_SUBGRAPH_URL=https://api.studio.thegraph.com/query/1760242/hunch-vpm-arc-testnet/v0.0.1
+```
 
 ---
 

@@ -25,9 +25,11 @@ neither subgraph is published to Studio yet — so the surface still serves the 
 - [Deploying the subgraphs](#deploying-the-subgraphs)
 - [Deploying the web surface](#deploying-the-web-surface)
 - [Opening a market](#opening-a-market)
+- [Chainlink prices on Arc testnet (CRE)](#chainlink-prices-on-arc-testnet-cre)
 - [Resolving a market](#resolving-a-market)
 - [The keeper](#the-keeper)
 - [When the feed goes stale](#when-the-feed-goes-stale)
+- [Arc mainnet](#arc-mainnet)
 - [Substreams](#substreams)
 - [Secrets](#secrets)
 
@@ -203,6 +205,15 @@ provider ships is configuration rather than a code change.
 | `chainlink` | `ChainlinkFeedOracle` | Needs no address at deploy time — the feed is the per-market `feedKey` |
 | `mock` | `MockOracle` | Local chains only. A settable price with a settable timestamp |
 
+**Stork on Arc testnet has stopped publishing.** Its last update landed on 2026-06-14 (block
+47,013,326). The adapter reads through `getTemporalNumericValueV1`, which reverts `StaleValue()`
+once a value is over an hour old, so a Stork-backed market can never resolve today. Pushing an
+update yourself needs Stork-signed data, and that needs a Stork API key. Pyth's Arc testnet
+contract has the same problem: Hermes has required an API key since the Pyth Core upgrade on
+2026-08-26, and Arc testnet was left out of that upgrade. **Arc testnet markets resolve through
+Chainlink instead**, relayed by CRE. See [Chainlink prices on Arc testnet](#chainlink-prices-on-arc-testnet-cre).
+On Arc mainnet, Chainlink publishes Data Feeds directly, so `ORACLE_KIND=chainlink` is the one to ship.
+
 The unrecognised-value case falling through to Stork is deliberate but silent: a typo in
 `ORACLE_KIND` deploys Stork without complaint. Read the adapter address the script prints
 against the one you expected before you go further.
@@ -304,8 +315,8 @@ for a network that has no file.
 | `subgraph/networks.json` and `subgraph/subgraph.yaml` | `arc-testnet`: all four addresses and each one's deployment block as `startBlock`. The committed manifest is the arc-testnet one, so the script writes both |
 | `packages/client/src/addresses.ts` | `arcTestnetAddresses`. Callers can also override per client with `defineConfig({ addresses: { … } })` without touching the file |
 | `apps/web/src/lib/chain.ts` | `ARC_TESTNET_ADDRESSES`, including `priceOracle` (the adapter a spec names). Deliberately duplicated from the client rather than imported, because the app has to typecheck before the client has been built |
-| `packages/mcp` environment | `HUNCH_VPM_SETTLER_ADDRESS`, and `HUNCH_VPM_CLASSIC_SETTLER_ADDRESS` once the comparison settler is up |
-| `agent` environment | `HUNCH_SETTLER` — live mode refuses to start while it is the zero address |
+| `packages/mcp` environment | `HUNCH_VPM_SETTLER_ADDRESS`, `HUNCH_VPM_CLASSIC_SETTLER_ADDRESS`. Arc testnet values are filled in `packages/mcp/.env.example`: `0xC743…2Eec` and `0x2160…0D57` |
+| `agent` environment | `HUNCH_SETTLER=0xC743940C75619f65F6178b7e49c0C3A0bE012Eec`, `HUNCH_MARKET_IDS` from `deployments/arc-testnet.json`. Live mode refuses to start while `HUNCH_SETTLER` is the zero address |
 
 The Substreams package takes them as module parameters rather than committed configuration;
 see [Substreams](#substreams).
@@ -403,13 +414,17 @@ and production is <https://hunch-vpm.vercel.app>. A push to `main` redeploys it 
 at the repository root carries the whole build configuration (`git.deploymentEnabled.main`),
 so the settings below are already in effect and are recorded here for a rebuild from scratch.
 
-Each network reads its own subgraph. With no subgraph URL for a network — the current state for
-both — that network serves the fixture dataset and says so. Point one at a live subgraph by
-setting its variables below, and nothing else has to change.
+Each network reads its own subgraph. With no subgraph URL for a network, that network serves the
+fixture dataset and says so. **Arc testnet is live:** its two subgraph URLs and
+`NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` are set in Vercel for production, preview and development.
+Mainnet has none of them yet, so it serves fixtures.
 
 The repository is a pnpm workspace, and `vercel.json` builds it from the root with a filter
-(`pnpm --filter @hunch-vpm/web build`) rather than setting a Root Directory, because the app
-extends `../../tsconfig.base.json`. If you configure a project by hand in the dashboard
+(`pnpm --filter @hunch-vpm/web... build`) rather than setting a Root Directory, because the app
+extends `../../tsconfig.base.json`. **The trailing `...` matters.** It builds the web app's
+workspace dependencies first. The live data source loads `@hunch-vpm/client` from its `dist` at
+runtime, and without the dots Vercel failed while collecting page data for `/m/[id]` with
+`Cannot find module …/@hunch-vpm/client/dist/index.js`. If you configure a project by hand in the dashboard
 instead, point it at the app directory:
 
 | Setting | Value |
@@ -525,6 +540,55 @@ validates the shape before it encodes: at least two outcomes, every leg positive
 a 32-byte `feedKey`, and every integer inside its field width. It holds no key and signs
 nothing.
 
+### The markets open on Arc testnet
+
+Both were opened on 2026-09-13 by the deployer through MarketFactory. Each is seeded with 2 USDC
+per side, `kappa` 30, a 3-day `voidTimeout` and `maxStaleness` 5400 s, and both resolve through
+`ChainlinkCreOracle`. Each one's full record is in `deployments/arc-testnet.json` (`markets`).
+
+| Subgraph id | Question | Freeze (UTC) | specId |
+|---|---|---|---|
+| `0xc743…2eec-0` | BTC / USD at or above $77,000 | 2026-09-15 16:00 | `0x49a5f58c…c0ff` |
+| `0xc743…2eec-1` | ETH / USD at or above $2,500 | 2026-09-20 16:00 | `0xa89bf6c8…70dc` |
+
+To open another one, follow the steps above, add its entry to `markets`, and append its id to
+`NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` in Vercel. The market page sets `dynamicParams = false`,
+so a redeploy is what makes its `/m/<id>` route exist.
+
+## Chainlink prices on Arc testnet (CRE)
+
+Chainlink publishes Data Feeds on Arc **mainnet** (the reference data directory lists ETH / USD at
+`0x50FCDD99D6762D1C170DC6A9111db944AEE6D364`) but not on Arc **testnet**. On testnet the
+Chainlink-native route is the Chainlink Runtime Environment. A workflow reads the feed where it
+lives (Ethereum Sepolia) and the DON signs a report. Chainlink's production `KeystoneForwarder`
+on Arc testnet (`0x76c9cf548b4179F8901cda1f8623568b58215E62`, `typeAndVersion` "KeystoneForwarder
+1.0.0") verifies the report and delivers it to `ChainlinkCreOracle`.
+
+| Piece | Where |
+|---|---|
+| `ChainlinkCreOracle` (IPriceOracle + IReceiver) | `contracts/src/oracles/ChainlinkCreOracle.sol`, deployed and verified at `0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621` by `script/DeployCreOracle.s.sol` |
+| The workflow, `hunch-price-relay` | `cre/price-relay/`. Every 5 minutes it relays ETH / USD and BTC / USD from Sepolia |
+| Feed keys | `keccak256` of the source feed's `description()`: `cast keccak "ETH / USD"` |
+
+The adapter takes reports **only** from the production forwarder, and only for a configured workflow
+owner and/or workflow id. Until one is configured it refuses everything. It records the
+**source** round's timestamp, so `maxStaleness` judges the feed's real age. The Sepolia feeds
+have a one-hour heartbeat, which is why the testnet markets allow 5400 s.
+
+**Order of operations**, all but the last two done:
+
+1. Deploy the adapter: `forge script script/DeployCreOracle.s.sol --rpc-url arc_testnet --broadcast --account <acct>`.
+2. Open markets whose spec names the adapter and `cast keccak "<PAIR>"` as the feed key.
+3. `cd cre/price-relay && bun install && bun test`.
+4. **Operator:** `cre login`, then `cre account access` to request deploy access. Once it is granted,
+   run `cre workflow deploy price-relay --target production-settings` from `cre/`.
+5. **Operator:** `setExpectedWorkflowId` / `setExpectedAuthor` on the adapter with the values
+   `cre` prints, then `lock()` it once the first `PriceRelayed` event lands.
+
+`cre/README.md` has the exact commands. If a market freezes before prices flow, nothing is lost:
+the keeper waits (it never voids by default). After `resolutionTime + voidTimeout` anyone may void
+the market through the settler, and every position refunds at accepted principal.
+
 ## Resolving a market
 
 `FeedResolver` is the market's `resolver`, so nobody resolves anything by hand. Anyone may
@@ -627,6 +691,24 @@ It exits non-zero only when a call was attempted and reverted, so cron's own
 mail-on-failure is a usable alert. A spec that is simply not ready is not a
 failure and does not page anyone.
 
+### Scheduled on GitHub Actions (what Arc testnet uses)
+
+`.github/workflows/keeper.yml` runs one pass every 10 minutes on `main`. It also has a
+**Run workflow** button. It takes the spec ids from `deployments/arc-testnet.json` (`markets[].specId`), so
+committing a new market's entry is what puts it under the keeper.
+
+- **No `KEEPER_PRIVATE_KEY` secret: dry run.** It reports what it would send and sends nothing.
+- **With the secret: live.** Create a fresh key that is not the deployer's, fund it with about
+  1 testnet USDC at <https://faucet.circle.com>, and store it as a repository secret:
+
+  ```sh
+  cast wallet new                       # note the address and private key
+  gh secret set KEEPER_PRIVATE_KEY      # paste the private key at the prompt
+  ```
+
+It never passes `--allow-void`. GitHub may run a schedule late, and that is harmless: the book
+froze at `resolutionTime`, whenever `resolve` actually lands.
+
 ## When the feed goes stale
 
 `resolve` reverts rather than voids when the reading is too old. That is deliberate: a keeper
@@ -678,6 +760,46 @@ against the provider's real publish cadence with room for a bad minute; too tigh
 ordinary gap voids a market that had a perfectly good answer. The market page shows the bound,
 the last reading and its timestamp, and flags a spec whose last reading is already older than
 its own bound.
+
+## Arc mainnet
+
+Public launch is **16 September 2026**, chain id **5042**. Nothing of ours is deployed there.
+The code is ready, and the steps are the testnet ones with three differences.
+
+**What is already true (checked 2026-09-13):**
+
+- **Chainlink Data Feeds exist on Arc mainnet.** The reference data directory
+  (`feeds-arc-mainnet.json`) lists 30, including ETH / USD `0x50FCDD99D6762D1C170DC6A9111db944AEE6D364`
+  and BTC / USD `0xa109B535C70C8Be9995be64Bb6751AcDB27e03De`. Both are 8 decimals with a 24 h
+  heartbeat and a 0.5 % deviation trigger. So mainnet ships `ORACLE_KIND=chainlink`:
+  `ChainlinkFeedOracle` reads the aggregator directly, with the feed address as the `feedKey`. No
+  CRE relay and no API key.
+- **A 24 h heartbeat changes `maxStaleness`.** A quiet market can sit a day between rounds, so a
+  tight bound voids markets that had a good answer. Use at least 90000 s on mainnet, or pick a pair
+  whose deviation trigger fires often.
+- The Graph supports `arc` (`subgraph/package.json` has `deploy:mainnet`). graph-cli 0.98.1
+  builds it.
+
+**What must be published before anything is sent**, and is not yet:
+
+- Arc's official mainnet **RPC**. Chainlink's docs name `explorer.arc.io` as the explorer. Confirm
+  both on docs.arc.io at launch, and do not use third-party endpoints.
+- The **ERC-8004 registries**' mainnet addresses, for the reputation subgraph and `/agents`.
+
+**Order of operations:**
+
+1. Fund a mainnet deployer keystore with real USDC: about 0.35 for gas, plus the seeds.
+2. `ARC_MAINNET_RPC_URL=… ARC_VERIFIER_URL=<blockscout api> ORACLE_KIND=chainlink bash scripts/preflight-deploy.sh <acct> mainnet`,
+   then the command it prints.
+3. Cut `deployments/arc-mainnet.json`, then run `pnpm wire:mainnet` and `pnpm verify`.
+4. Create the `hunch-vpm-arc` Studio subgraph (network `arc`), then `pnpm --filter @hunch-vpm/subgraph deploy:mainnet`.
+5. Open markets on the Chainlink feed addresses. Set `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_MAINNET`,
+   `NEXT_PUBLIC_HUNCH_MARKET_IDS_MAINNET`, `NEXT_PUBLIC_ARC_RPC_URL` and `NEXT_PUBLIC_ARC_EXPLORER_URL`
+   in Vercel.
+6. Add a mainnet keeper job with its own funded key.
+
+**The contracts are not audited.** The web surface already shows a non-dismissible notice on
+mainnet. Keep seeds small until that changes.
 
 ## Substreams
 

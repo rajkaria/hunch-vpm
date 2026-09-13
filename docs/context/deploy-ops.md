@@ -4,8 +4,10 @@ globs:
   - scripts/**
   - contracts/script/**
   - contracts/broadcast/**
+  - contracts/src/oracles/**
   - contracts/foundry.toml
   - contracts/.gitignore
+  - cre/**
   - deployments/**
   - agent/src/keeper/**
   - subgraph/package.json
@@ -21,117 +23,104 @@ updated: 2026-09-13
 
 # Deploying and operating the venue
 
-Covers the deploy path and preflight, address wiring, the resolver keeper, subgraph deploys, CI,
-and Vercel.
+Covers the deploy path and preflight, address wiring, oracles (Chainlink CRE relay), the resolver
+keeper, subgraph deploys, CI, and Vercel.
 
 ## Current state — what's working, deployed, broken
 
-**Deployed on Arc testnet (2026-09-13), all five verified on Arcscan** — `deployments/arc-testnet.json`:
+**Arc testnet (all verified on Arcscan)**. Source of truth: `deployments/arc-testnet.json`.
 
 | Contract | Address | Block |
 |---|---|---|
 | VestedParimutuel | `0xC743940C75619f65F6178b7e49c0C3A0bE012Eec` | 61840931 |
 | ClassicParimutuel | `0x21603b2176aB8495A81fF3B3bE853C64f3860D57` | 61840931 |
-| StorkOracle (adapter) | `0x5938F12246642aE8E6A47Efbaa72a454EafD4287` | 61840931 |
+| StorkOracle (unused, Stork is dead) | `0x5938F12246642aE8E6A47Efbaa72a454EafD4287` | 61840931 |
 | FeedResolver | `0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3` | 61840931 |
 | MarketFactory | `0x0380C6FC136AE64432558e407706a5C7E7652f07` | 61840932 |
+| **ChainlinkCreOracle** | `0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621` (owner = deployer, forwarder = prod KeystoneForwarder `0x76c9…5E62`, **unconfigured: accepts nothing yet**) | 61858720 |
 
-Deployer / keystore `arc-deployer` = `0x763e4A729cF78e33B8fdE36B9b6f29bBce120dE0` (password file
-`~/.foundry/arc-deployer.password`, mode 600, outside the repo). Gas ~0.123 USDC; ~19.88 left.
+**Markets open** (2 USDC per side, kappa 30, voidTimeout 3 d, maxStaleness 5400 s, oracle = CRE adapter):
+- `0xc743…2eec-0` BTC / USD ≥ $77,000 @ 2026-09-15 16:00 UTC, spec `0x49a5f58c…c0ff`
+- `0xc743…2eec-1` ETH / USD ≥ $2,500 @ 2026-09-20 16:00 UTC, spec `0xa89bf6c8…70dc`
 
-**Wired** into all four committed readers by `pnpm wire:testnet`; `pnpm wire:check` is a
-`pnpm verify` stage. Web: `https://hunch-vpm.vercel.app` (auto-deploys `main`).
+Both indexed by the Studio subgraph. Deployer keeps about 11.8 USDC (ERC-20 view).
 
-**Subgraph `hunch-vpm-arc-testnet` deployed to Studio (v0.0.1)** — query URL
-`https://api.studio.thegraph.com/query/1760242/hunch-vpm-arc-testnet/v0.0.1` (keyless,
-rate-limited), deployment `QmTK35SdoArmdU8oHmH4uNeKhZbaLUnvzVGJfLyKMdBgXs`, synced to head, no
-indexing errors. `graph auth` is configured on this machine (account-wide Studio deploy key).
+**Subgraphs:** `hunch-vpm-arc-testnet` v0.0.1 is at head. `erc-8004-arc-testnet` v0.0.1 was at
+block 41.08M of 61.86M at 12:00 IST (still backfilling, no errors). The user says both are
+published to the Network. Query URLs: `https://api.studio.thegraph.com/query/1760242/<slug>/v0.0.1`.
 
-**Not done / blocked:**
-- **`erc-8004-arc-testnet` deployed to Studio (v0.0.1)** — query URL
-  `https://api.studio.thegraph.com/query/1760242/erc-8004-arc-testnet/v0.0.1`, deployment
-  `QmNnxenMCewcii19VGtCZgoU3rDJLfMhKxX9x8aG5c5CSa`. Note the hyphen in the slug. It starts at block
-  29241339 (registry creation), so it was **still backfilling ~32M blocks** at first check (no
-  indexing errors); reputation reads are empty until it reaches head.
-- **Neither subgraph is *published* to The Graph Network.** Publishing is an on-chain transaction
-  (Arbitrum One, wallet signature, GRT signal) done in Studio's Publish button or `graph publish`
-  (opens a signing web UI). A deploy key cannot publish, and it must be the operator's wallet.
-  Also unconfirmed whether the Network indexes Arc testnet at all. Studio query URLs are enough
-  for testnet.
-- **Vercel env:** `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` and `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET`
-  set on production, preview and development for project `hunch-vpm` (no other vars existed). **It only takes effect once PR #10 is
-  merged** — current `main` reads only the unsuffixed name, so production is unchanged until then.
-  `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` is unset (no market exists), so the live board will be empty.
-- The Studio deploy key was pasted in chat — operator will rotate it, then re-run `graph auth`.
-- Env readers not set anywhere: MCP `HUNCH_VPM_SETTLER_ADDRESS`/`HUNCH_VPM_CLASSIC_SETTLER_ADDRESS`,
-  agent `HUNCH_SETTLER`. Nothing on mainnet. No market opened yet.
+**Vercel** (`hunch-vpm`, linked in this worktree): `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET`,
+`NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` and `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` (both ids)
+are set for prod, preview and dev. PR #10's preview failed with `Cannot find module
+@hunch-vpm/client/dist`; the fix is `vercel.json` buildCommand `pnpm --filter @hunch-vpm/web... build`.
 
-## Verified Arc facts (checked 2026-09-13, primary sources + on-chain)
+**Keeper:** `.github/workflows/keeper.yml` runs every 10 min on `main`, taking spec ids from the
+deployments file. It is a dry run until the `KEEPER_PRIVATE_KEY` repo secret exists.
 
-- **Native USDC = 18 decimals; ERC-20 view at `0x3600…0000` = 6.** One balance (faucet's 20 USDC
-  read 20e18 native, 20e6 via `balanceOf`).
-- **Testnet:** chain 5042002, RPC `https://rpc.testnet.arc.io`, explorer
-  `https://testnet.arcscan.app`, faucet `https://faucet.circle.com` (CAPTCHA — operator only;
-  no faucet MCP exists).
-- **Arcscan is Blockscout**, no API key. It **rate-limits** (`Too many requests`): `--verify`
-  and `forge verify-contract` both failed on FeedResolver/MarketFactory. **Blockscout v2
-  standard-input** (`POST /api/v2/smart-contracts/<addr>/verification/via/standard-input`,
-  multipart, `compiler_version=v0.8.28+commit.7893614a`) worked first try.
-- **Mainnet: public launch 16 Sept 2026**, chain 5042; RPC/explorer unpublished; **no verified
-  oracle** — mainnet markets cannot resolve until one exists.
-- **The Graph:** `arc-testnet` and `arc`; graph-cli 0.98.1. Studio subgraphs must be created in
-  the UI before `graph deploy`.
+**MCP/agent env:** `packages/mcp/.env.example` now carries the real testnet settlers and Studio
+URLs. The agent's `HUNCH_SETTLER` / `HUNCH_MARKET_IDS` values are documented in `agent/README.md` and the RUNBOOK.
+Neither process runs anywhere hosted; whoever launches one sets its env.
+
+## Verified facts (2026-09-13)
+
+- **Native USDC = 18 dp; ERC-20 view `0x3600…0000` = 6.**
+- **Stork on Arc testnet is dead:** last push 2026-06-14, block 47,013,326. `getTemporalNumericValueV1`
+  reverts `StaleValue()` (validity 3600 s). Pushing needs a Stork API key.
+- **Pyth on Arc testnet** `0x2880…C17B43` (v1.4.5-alpha.1): Arc testnet was left out of the Pyth
+  Core upgrade (2026-08-26), and Hermes now needs an API key (`pyth.dourolabs.app/hermes`). Rejected.
+- **Chainlink Data Feeds: Arc MAINNET only.** 30 feeds in `feeds-arc-mainnet.json`: ETH/USD proxy
+  `0x50FCDD99D6762D1C170DC6A9111db944AEE6D364`, BTC/USD `0xa109B535C70C8Be9995be64Bb6751AcDB27e03De`,
+  8 dp, 24 h heartbeat. There are none on testnet.
+- **CRE on Arc testnet:** production KeystoneForwarder `0x76c9cf548b4179F8901cda1f8623568b58215E62`
+  ("KeystoneForwarder 1.0.0", has code). The simulation MockKeystoneForwarder `0x6E9E…dc1` checks no
+  signatures, so it is never trusted. CLI ≥ 1.0.7; deploy access is gated (`cre account access`).
+- **Sepolia source feeds** (on-chain `description()` checked): ETH/USD
+  `0x694AA1769357215DE4FAC081bf1f309aDC325306`, BTC/USD `0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43`,
+  8 dp, fresh.
+- `@chainlink/cre-sdk@1.21.0` is a broken publish (`workspace:*` dep); pinned 1.20.0.
+- Hermes/Studio POSTs via `curl` are blocked in this shell (security hook). Use the Browser pane's JS
+  `fetch` from the target origin. `node`, `rm` and `curl` are shell-blocked; pnpm scripts and bun work.
+- Mainnet: launch 16 Sept, chain 5042. Chainlink docs name `explorer.arc.io`; the RPC is unpublished.
 
 ## Recent changes — files touched and why
 
-- `scripts/preflight-deploy.sh` — Foundry 1.5 lists `name (Local)`, so the exact match refused a
-  real keystore; `ETH_PASSWORD` password-file support; **compiles first** (empty forge-std in a
-  worktree failed the first deploy); balance floor 0.35 USDC; printed command has `pipefail`
-  (`| tee` had masked forge's failure) and `pnpm wire:<network>`.
-- `scripts/wire-deployment.mjs` (new) — writes `subgraph/networks.json`, `subgraph/subgraph.yaml`,
-  `packages/client/src/addresses.ts`, `apps/web/src/lib/chain.ts` (+ web-only `priceOracle`) from
-  `deployments/arc-<net>.json`; derives `startBlocks` from broadcast receipts; checks code via RPC;
-  `--check` mode. `scripts/verify.sh` runs it.
-- `package.json` — `wire:testnet|mainnet|check`, `preflight:testnet`.
-- `subgraph/package.json` + `subgraph/tools/with-network.mjs` — `deploy:testnet`/`deploy:mainnet`
-  via the restore-the-manifest wrapper; stray `deploy:studio` (slug `hunch-vpm`) removed.
-- `subgraph/.gitignore` — ignores `subgraph.yaml.orig` (the wrapper's recovery copy).
-- Worktree is `vercel link`ed to `hunch-vpm` (`.vercel/`, `.env.local` — both ignored; never commit).
-- `contracts/broadcast/Deploy.s.sol/5042002/` — receipts committed (no secrets; sensitive values go
-  to ignored `cache/`).
-- Docs: RUNBOOK, deployments/README, SUBMISSION, SUBMISSION-CHECKLIST, DEMO, package READMEs,
-  CLAUDE.md standing fact.
+- `contracts/src/oracles/ChainlinkCreOracle.sol` + `test/ChainlinkCreOracle.t.sol` (20 tests, incl. e2e
+  settle) + `script/DeployCreOracle.s.sol` + `broadcast/DeployCreOracle.s.sol/5042002/`.
+- `cre/` — `price-relay` workflow (bun, outside the pnpm workspace), `report.ts` byte-checked
+  against `cast abi-encode`, `project.yaml`, README.
+- `deployments/arc-testnet.json` — `chainlinkCreOracle`, `creForwarder`, `markets[]`.
+- `scripts/wire-deployment.mjs` — `OPTIONAL_WEB` keys (`chainlinkCreOracle`), zero when absent.
+- `apps/web/src/lib/chain.ts` (+`chainlinkCreOracle`), `lib/data/live.ts` (`oracleNameFor`, CRE feed
+  labels), `test/oracle-name.test.ts`.
+- `vercel.json` — `web...` filter. `.github/workflows/keeper.yml` — new.
+- Docs: RUNBOOK (Stork dead, CRE section, markets, GH keeper, **Arc mainnet** section), deployments
+  README, SUBMISSION, DEMO, `packages/mcp/.env.example`.
 
-## Key decisions — choices and trade-offs, why X over Y
+## Key decisions
 
-- **Wiring is a script with a check, not a table in the runbook** — four readers that cannot
-  import each other drift silently; the gate now fails instead.
-- **Start blocks live in the deployments file**, so the record outlives `broadcast/`.
-- **Keeper is its own binary**; **`--allow-void` OFF by default**; **dry run default**.
-- **No guessed mainnet RPC/explorer/oracle anywhere.**
-- **Verification on the CLI / v2 API, not in foundry.toml.**
-- **Deploy key never enters the repo or chat** — `graph auth` stores it in graph-cli's config.
+- **Chainlink over Pyth/Stork** — the user asked for Chainlink (a hackathon sponsor). The testnet route is
+  CRE, not Data Feeds; mainnet uses `ChainlinkFeedOracle` directly.
+- **The adapter fails closed**: forwarder-only, requires workflow owner/id, and `lock()` makes it trustless.
+- **Store the source round timestamp**, so staleness is honest; maxStaleness 5400 s over a 1 h heartbeat.
+- **Markets opened before the relay runs.** Harmless: the keeper waits, and after voidTimeout anyone voids
+  with full refunds.
+- **Keeper on GitHub Actions**: no raw key ever passed through the agent; the operator sets the secret.
 
-## Traps that cost money
+## Traps
 
-- RPC answering on the **wrong chain** (preflight checks; wire script checks code).
-- **18 vs 6 decimals** — `cast balance`/gas are 18; `balanceOf`/stakes are 6.
-- Unrecognised `ORACLE_KIND` silently becomes Stork.
-- **Empty `contracts/lib/forge-std` in a new worktree** — `git submodule update --init --recursive`.
-- **`| tee` without `pipefail`** reports a failed deploy as success.
-- `Deploy.s.sol` writes no file — cut the JSON from `deploy.log`, then `pnpm wire:testnet`.
-- `graph build/deploy --network X` **rewrites `subgraph.yaml` in place** — use the package scripts.
+- `vercel link` appends `.env*` to `.gitignore`, which would ignore `.env.example`. Revert it.
+- `vercel env` needs the worktree linked (`vercel link --yes --project hunch-vpm --scope rajkaria67-1831s-projects`).
+- **18 vs 6 decimals**; `| tee` without pipefail; empty forge-std in a new worktree; `graph build --network`
+  rewrites the manifest.
+- Web `/m/[id]` has `dynamicParams = false` — a new market id needs a redeploy.
 
 ## Next steps
 
-1. **Merge PR #10** (https://github.com/rajkaria/hunch-vpm/pull/10) — production then builds with
-   the per-network data layer and the testnet subgraph URL already set in Vercel.
-2. Confirm `erc-8004-arc-testnet` has synced to head in Studio (it backfills from block 29241339).
-3. **Open the first market** through MarketFactory `0x0380…2f07` with the funded deployer; add its
-   subgraph id (`0xc743940c75619f65f6178b7e49c0c3a0be012eec-0`) to
-   `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` in Vercel; redeploy; confirm the board goes live.
-4. Operator: rotate the Studio deploy key, re-run `graph auth`; decide on publishing to the
-   Network (wallet + GRT) — optional for testnet.
-5. Set the MCP/agent env readers; run the keeper `--help`, then schedule it on testnet.
-6. **Mainnet, after 16 Sept:** RPC/explorer from docs.arc.io, a verified oracle (blocking), then
-   preflight → deploy → `pnpm wire:mainnet`.
+1. **Merge PR #10** → production builds with the per-network data layer and the market ids.
+2. **Operator (CRE):** `cre login` → `cre account access` → once granted, `cre workflow deploy price-relay
+   --target production-settings` (from `cre/`) → `setExpectedWorkflowId`/`setExpectedAuthor` on the adapter → `lock()`.
+   Needed before 2026-09-15 16:00 UTC for BTC market to resolve (else void after +3 d, refunds).
+3. **Operator (keeper):** `cast wallet new`, fund ~1 USDC, `gh secret set KEEPER_PRIVATE_KEY`.
+4. Browser-verify the production board/market pages and walk a real wallet stake (needs a human wallet).
+5. Confirm `erc-8004-arc-testnet` reaches head.
+6. Mainnet after 16 Sept: RUNBOOK "Arc mainnet" section.

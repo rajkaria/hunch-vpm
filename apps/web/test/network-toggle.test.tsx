@@ -106,22 +106,45 @@ describe('NetworkToggle', () => {
 describe('MainnetNotice', () => {
   it('says nothing on testnet', () => {
     const { container } = wrap(<MainnetNotice />);
-    expect(container.textContent).not.toMatch(/not been audited/);
+    expect(container.textContent).toBe('');
   });
 
-  it('warns on mainnet, and names the risk in plain words', () => {
+  it('before launch, says the venue goes live when Arc mainnet does — and not that real USDC is at stake', () => {
+    window.localStorage.setItem('hunch-vpm.network', 'mainnet');
+    const { container } = wrap(<MainnetNotice deployed={false} />);
+    expect(screen.getByText(/goes live on Arc mainnet when Arc mainnet launches/)).toBeTruthy();
+    expect(screen.getByText(/markets on this side are a sample/)).toBeTruthy();
+    expect(container.textContent).not.toMatch(/not been audited|real USDC/);
+  });
+
+  it('before launch, sends the viewer to the live venue on testnet', () => {
+    window.localStorage.setItem('hunch-vpm.network', 'mainnet');
+    const { container } = wrap(<MainnetNotice deployed={false} />);
+    fireEvent.click(screen.getByRole('button', { name: /Go to Arc Testnet/ }));
+    expect(window.localStorage.getItem('hunch-vpm.network')).toBe('testnet');
+    expect(container.textContent).toBe('');
+  });
+
+  it('follows the address book: prelaunch exactly while the mainnet settler is undeployed', () => {
     window.localStorage.setItem('hunch-vpm.network', 'mainnet');
     wrap(<MainnetNotice />);
+    const prelaunch = screen.queryByText(/when Arc mainnet launches/) !== null;
+    expect(prelaunch).toBe(!isDeployed(ARC_MAINNET_ADDRESSES.vestedParimutuel));
+  });
+
+  it('once deployed, warns and names the risk in plain words', () => {
+    window.localStorage.setItem('hunch-vpm.network', 'mainnet');
+    wrap(<MainnetNotice deployed />);
     expect(screen.getByText(/These contracts have not been audited/)).toBeTruthy();
     expect(screen.getByText(/real USDC/)).toBeTruthy();
     expect(screen.getByText(/no recourse/)).toBeTruthy();
   });
 
-  it('cannot be dismissed', () => {
+  it('once deployed, cannot be dismissed', () => {
     // A warning someone can close stops existing for the person most likely to
     // need it, and the risk does not go away when the banner does.
     window.localStorage.setItem('hunch-vpm.network', 'mainnet');
-    const { container } = wrap(<MainnetNotice />);
+    const { container } = wrap(<MainnetNotice deployed />);
     expect(container.querySelector('button')).toBeNull();
     expect(container.querySelector('[role="alert"]')).toBeTruthy();
   });

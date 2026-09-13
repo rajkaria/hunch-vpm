@@ -76,12 +76,24 @@ export function formatTimeRemaining(totalSeconds: number): string {
   return 'under a minute';
 }
 
-/** Seconds -> "30s", "5m", "2h", "3d" for durations like a staleness bound. */
+/**
+ * Seconds -> "30s", "5m", "1h 30m", "1d 1h" for durations like a staleness bound.
+ *
+ * Exact, never rounded: a bound is hashed into a market's spec and decides whether it settles
+ * or voids, so 5400 s must read "1h 30m" — rounding it to "2h" would overstate how old a
+ * reading the market will accept.
+ */
 export function formatDuration(totalSeconds: bigint | number): string {
-  const seconds = Number(totalSeconds);
+  const seconds = Math.floor(Number(totalSeconds));
   if (!Number.isFinite(seconds) || seconds <= 0) return '0s';
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3_600) return `${Math.round(seconds / 60)}m`;
-  if (seconds < 86_400) return `${Math.round(seconds / 3_600)}h`;
-  return `${Math.round(seconds / 86_400)}d`;
+  const units: [number, string][] = [
+    [Math.floor(seconds / 86_400), 'd'],
+    [Math.floor((seconds % 86_400) / 3_600), 'h'],
+    [Math.floor((seconds % 3_600) / 60), 'm'],
+    [seconds % 60, 's'],
+  ];
+  return units
+    .filter(([count]) => count > 0)
+    .map(([count, unit]) => `${count}${unit}`)
+    .join(' ');
 }

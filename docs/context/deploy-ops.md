@@ -45,8 +45,11 @@ keeper, subgraph deploys, CI, and Vercel.
 
 Both indexed by the Studio subgraph. Deployer keeps about 11.8 USDC (ERC-20 view).
 
+**Production is live on Arc testnet** (<https://hunch-vpm.vercel.app>; PRs #10 and #11 merged
+2026-09-13). The board shows both markets and the market page names the Chainlink CRE oracle, with no console errors.
+
 **Subgraphs:** `hunch-vpm-arc-testnet` v0.0.1 is at head. `erc-8004-arc-testnet` v0.0.1 was at
-block 41.08M of 61.86M at 12:00 IST (still backfilling, no errors). The user says both are
+block 46.37M of 61.87M at ~13:20 IST (about 75%, still backfilling, no errors, roughly 6 h to head). The user says both are
 published to the Network. Query URLs: `https://api.studio.thegraph.com/query/1760242/<slug>/v0.0.1`.
 
 **Vercel** (`hunch-vpm`, linked in this worktree): `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET`,
@@ -62,9 +65,9 @@ workspace packages.
 **Keeper:** `.github/workflows/keeper.yml` runs every 10 min on `main`, taking spec ids from the
 deployments file. It is a dry run until the `KEEPER_PRIVATE_KEY` repo secret exists. The first manual
 run (34746039686) failed: `preview` reverts while the CRE oracle has no reading, and the keeper
-counted that as a failed read. Fixed on branch `claude/keeper-no-reading`: a revert becomes
-`hasReading: false` and the new `no-reading` action, which waits and never voids. A local dry run
-against Arc testnet now reports `2 checked · 0 failed`, exit 0.
+counted that as a failed read. **PR #11 (merged)** fixes it: a revert becomes `hasReading: false` and
+the new `no-reading` action, which waits and never voids. Manual run 34746584217 on `main` is
+green: both specs are `too-early`, 0 failed, dry run.
 
 **MCP/agent env:** `packages/mcp/.env.example` now carries the real testnet settlers and Studio
 URLs. The agent's `HUNCH_SETTLER` / `HUNCH_MARKET_IDS` values are documented in `agent/README.md` and the RUNBOOK.
@@ -125,11 +128,14 @@ Neither process runs anywhere hosted; whoever launches one sets its env.
 
 ## Next steps
 
-1. ~~Merge PR #10~~ — **merged 2026-09-13** (`b1a1218`); production redeploys from `main`.
-2. **Operator (CRE):** `cre login` → `cre account access` → once granted, `cre workflow deploy price-relay
-   --target production-settings` (from `cre/`) → `setExpectedWorkflowId`/`setExpectedAuthor` on the adapter → `lock()`.
-   Needed before 2026-09-15 16:00 UTC for BTC market to resolve (else void after +3 d, refunds).
-3. **Operator (keeper):** `cast wallet new`, fund ~1 USDC, `gh secret set KEEPER_PRIVATE_KEY`.
-4. Browser-verify the production board/market pages and walk a real wallet stake (needs a human wallet).
-5. Confirm `erc-8004-arc-testnet` reaches head.
-6. Mainnet after 16 Sept: RUNBOOK "Arc mainnet" section.
+1. **Operator (CRE, urgent):** run `cre login`, then `cre account access`. Once access is granted:
+   - `cre workflow deploy price-relay --target production-settings` (from `cre/`)
+   - `setExpectedWorkflowId` or `setExpectedAuthor` on the adapter
+   - confirm the first `PriceRelayed` event, then `lock()`
+
+   This is needed before 2026-09-15 16:00 UTC for the BTC market to resolve. Otherwise it voids after +3 d with refunds.
+2. **Operator (keeper):** `cast wallet new`, fund it with ~1 USDC, `gh secret set KEEPER_PRIVATE_KEY`. Then check that a scheduled run says `live`.
+3. **Operator:** rotate the Graph Studio deploy key shared in the earlier session.
+4. Confirm `erc-8004-arc-testnet` reaches head (`_meta.block` via Browser-pane fetch).
+5. Mainnet after 16 Sept: RUNBOOK "Arc mainnet" section. Take the RPC from docs.arc.io, use `ChainlinkFeedOracle`
+   with mainnet feed proxies, set maxStaleness ≥ 90000 s, and deploy the `arc` subgraph slug.

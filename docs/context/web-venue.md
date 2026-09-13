@@ -106,8 +106,8 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
 
 ## Next steps
 
-1. After PR #10 merges and a market is opened + its id set in `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`
-   (deploy-ops next steps 1-3): browser-verify the live board, market page and portfolio on the
-   production URL, then walk approve → enter → partial → close vintage → claim → void on testnet.
+1. Walk a real wallet stake on production testnet: approve → enter → partial → close vintage →
+   claim, and void if the relay never runs. This needs the user's wallet, because the agent cannot sign.
+   The board and market page are already browser-verified live (2026-09-13).
 2. Pass the selected network's `ChainFacts` to client-side `AddressLink`s (StakePanel, ClaimList).
 3. After mainnet launch: mainnet RPC/explorer env, addresses via `pnpm wire:mainnet`; rate-limit the API routes.

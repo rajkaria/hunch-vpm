@@ -1,10 +1,16 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef } from 'react';
+
+import { CloseVintageButton, useCloseVintage } from '@/components/market/CloseVintage';
 import { PositionPanel } from '@/components/market/PositionPanel';
 import { EmptyState } from '@/components/ui/primitives';
 import { dataSourceKinds } from '@/lib/data/kind';
+import { awaitingVintage } from '@/lib/data/position-wire';
 import type { MarketDetail } from '@/lib/data/types';
 import { useNetwork } from '@/lib/wallet/network';
+import { useMarketPositions } from '@/lib/wallet/positions';
 import { truncateAddress, useWallet } from '@/lib/wallet/useWallet';
 
 /**
@@ -18,8 +24,9 @@ import { truncateAddress, useWallet } from '@/lib/wallet/useWallet';
  *
  * With a wallet connected and the surface on fixtures, the positions shown are
  * still the sample wallet's, and it says so rather than implying they are the
- * visitor's. Reading real positions per address needs a per-address market
- * query the data source does not have yet — see REPORT.md.
+ * visitor's. On a live network the server renders for nobody in particular, so
+ * the connected wallet's positions are read here, in the browser, from the
+ * index — which is what keeps a stake on screen across a reload.
  */
 export function PositionGate({ market }: { market: MarketDetail }) {
   const wallet = useWallet();
@@ -47,5 +54,44 @@ export function PositionGate({ market }: { market: MarketDetail }) {
     );
   }
 
-  return <PositionPanel market={market} />;
+  return <LivePosition market={market} />;
+}
+
+function LivePosition({ market }: { market: MarketDetail }) {
+  const router = useRouter();
+  const { query, positions } = useMarketPositions(market.id);
+  const closer = useCloseVintage(market);
+  const pending = positions.filter(awaitingVintage).length;
+
+  // The capacity bars and the book table were rendered on the server before the
+  // books ruled on a buffered entry. When one is ruled on, re-render them once.
+  const previous = useRef(pending);
+  useEffect(() => {
+    if (pending < previous.current) router.refresh();
+    previous.current = pending;
+  }, [pending, router]);
+
+  if (query.isPending) {
+    return <p className="px-4 py-6 text-sm leading-relaxed text-muted sm:px-5">Reading your position from the index…</p>;
+  }
+
+  if (query.isError) {
+    return (
+      <EmptyState title="Your position could not be read.">
+        Nothing has happened to it — it is on chain either way. The index did not answer this
+        time; the portfolio page reads the same thing.
+      </EmptyState>
+    );
+  }
+
+  return (
+    <div>
+      <PositionPanel market={{ ...market, positions }} />
+      {pending === 0 || closer.done ? null : (
+        <div className="space-y-3 border-t border-edge px-4 py-5 sm:px-5">
+          <CloseVintageButton state={closer} />
+        </div>
+      )}
+    </div>
+  );
 }

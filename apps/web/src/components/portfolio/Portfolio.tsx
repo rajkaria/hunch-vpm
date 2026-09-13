@@ -1,34 +1,12 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 
 import { Amount, Badge, EmptyState, Panel, PanelHeader, Stat } from '@/components/ui/primitives';
+import { awaitingVintage } from '@/lib/data/position-wire';
 import { formatUtcDate } from '@/lib/time';
-import { useNetwork } from '@/lib/wallet/network';
+import { useWalletPositions } from '@/lib/wallet/positions';
 import { truncateAddress, useWallet } from '@/lib/wallet/useWallet';
-
-interface Entry {
-  market: {
-    id: string;
-    question: string;
-    subject: string;
-    status: string;
-    frozen: boolean;
-    winner: number | null;
-    resolutionTime: string;
-    outcomes: { outcome: number; label: string; tone: 'up' | 'down' | 'neutral' }[];
-  };
-  position: {
-    id: string;
-    positionId: string;
-    outcome: number;
-    offered: string;
-    accepted: string;
-    refused: string;
-    enteredAt: string;
-  };
-}
 
 const TONE: Record<'up' | 'down' | 'neutral', string> = {
   up: 'text-lime',
@@ -47,18 +25,8 @@ const TONE: Record<'up' | 'down' | 'neutral', string> = {
  */
 export function Portfolio() {
   const wallet = useWallet();
-  const { network, hydrated } = useNetwork();
-
-  const positions = useQuery({
-    // Keyed by network: the same address holds different things on each Arc.
-    queryKey: ['positions', network, wallet.address],
-    enabled: wallet.address !== null && hydrated,
-    queryFn: async (): Promise<{ source: string; entries: Entry[] }> => {
-      const response = await fetch(`/api/positions?network=${network}&address=${wallet.address ?? ''}`);
-      if (!response.ok) throw new Error('The index could not be reached.');
-      return response.json();
-    },
-  });
+  // The same read, and the same cache entry, as the market page's position panel.
+  const positions = useWalletPositions();
 
   if (wallet.address === null) {
     return (
@@ -97,7 +65,7 @@ export function Portfolio() {
         }
       >
         {source === 'live'
-          ? 'Positions for a connected address are not read from the live index yet — the client has no positions-by-owner query. Anything claimable still appears on the claim page.'
+          ? `${truncateAddress(wallet.address)} holds nothing on this network. Stake on a market and it is listed here as soon as the index sees the entry, before the vintage even closes.`
           : `${truncateAddress(wallet.address)} holds nothing. Stake on a market and it appears here the moment the entry lands, before the vintage even closes.`}
       </EmptyState>
     );
@@ -155,6 +123,7 @@ export function Portfolio() {
                   </div>
 
                   <div className="flex shrink-0 items-center gap-2">
+                    {awaitingVintage(entry.position) ? <Badge tone="note">Vintage open</Badge> : null}
                     {entry.market.status !== 'Open' ? (
                       <Badge tone={won ? 'up' : 'quiet'}>{won ? 'Won' : entry.market.status}</Badge>
                     ) : entry.market.frozen ? (
@@ -175,16 +144,24 @@ export function Portfolio() {
                   <div>
                     <dt className="text-[11px] tracking-[0.1em] text-faint uppercase">Accepted</dt>
                     <dd className="mt-0.5 text-sm">
-                      <Amount value={BigInt(entry.position.accepted)} />
+                      {awaitingVintage(entry.position) ? (
+                        <span className="num text-muted">pending</span>
+                      ) : (
+                        <Amount value={BigInt(entry.position.accepted)} />
+                      )}
                     </dd>
                   </div>
                   <div>
                     <dt className="text-[11px] tracking-[0.1em] text-faint uppercase">Refused</dt>
                     <dd className="mt-0.5 text-sm">
-                      <Amount
-                        value={refusedHere}
-                        className={refusedHere > 0n ? 'text-paper' : 'text-muted'}
-                      />
+                      {awaitingVintage(entry.position) ? (
+                        <span className="num text-muted">pending</span>
+                      ) : (
+                        <Amount
+                          value={refusedHere}
+                          className={refusedHere > 0n ? 'text-paper' : 'text-muted'}
+                        />
+                      )}
                     </dd>
                   </div>
                 </dl>

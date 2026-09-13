@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 import { decodeEventLog } from 'viem';
 import {
   useAccount,
@@ -9,12 +10,15 @@ import {
   useWriteContract,
 } from 'wagmi';
 
+import { CloseVintageButton, useCloseVintage } from '@/components/market/CloseVintage';
 import { Amount, Badge, Button } from '@/components/ui/primitives';
 import { isDeployed, txExplorerUrl } from '@/lib/chain';
 import type { MarketDetail } from '@/lib/data/types';
 import { erc20Abi, settlerAbi } from '@/lib/wallet/abi';
 import { FAUCET_URL } from '@/lib/wallet/chains';
+import { friendlyError } from '@/lib/wallet/errors';
 import { useNetwork } from '@/lib/wallet/network';
+import { expectPosition } from '@/lib/wallet/positions';
 import { useWallet } from '@/lib/wallet/useWallet';
 import type { Acceptance } from '@/lib/vpm';
 
@@ -55,7 +59,8 @@ export function EntryFlow({
   // On Arc that matters less for USDC — it is the native gas token at the same
   // predeploy address on both chains — but reading it from the selection keeps
   // one source of truth and makes a future divergence a config change.
-  const { addresses, facts } = useNetwork();
+  const { addresses, facts, network } = useNetwork();
+  const queryClient = useQueryClient();
 
   const settler = market.settler as `0x${string}`;
   const usdc = addresses.usdc as `0x${string}`;
@@ -104,6 +109,15 @@ export function EntryFlow({
     }
     return null;
   }, [enterReceipt.data]);
+
+  // This receipt lives in component state and is gone on reload; the index is
+  // not. Point the positions read at the entry so "Your position" holds it as
+  // soon as the index does, and keeps holding it after a refresh.
+  const walletAddress = wallet.address;
+  useEffect(() => {
+    if (entered === null || walletAddress === null) return;
+    expectPosition(queryClient, network, walletAddress, market.id, entered.positionId);
+  }, [entered, walletAddress, network, market.id, queryClient]);
 
   if (!live) {
     return (
@@ -232,10 +246,8 @@ function BufferedResult({
   acceptance: Acceptance;
   explorer: string | null;
 }) {
-  const wallet = useWallet();
-  const finalize = useWriteContract();
-  const receipt = useWaitForTransactionReceipt({ hash: finalize.data });
-  const done = receipt.data !== undefined;
+  const closer = useCloseVintage(market);
+  const done = closer.done;
 
   return (
     <div className="space-y-3">
@@ -248,7 +260,8 @@ function BufferedResult({
         <Amount value={entered.offered} className="text-paper" /> USDC is in, as position{' '}
         <span className="num text-paper">#{entered.positionId.toString()}</span>. The books have not
         ruled on it yet — stake entering in the same block is rationed together when that block’s
-        vintage closes, so the split below is still an estimate until it does.
+        vintage closes, so the split below is still an estimate until it does. It stays listed
+        under Your position, reload or not.
       </p>
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-control border border-edge bg-raised-2 px-4 py-3.5">
@@ -272,34 +285,7 @@ function BufferedResult({
           withdrawable from <a className="text-lime hover:underline" href="/claim">Claim</a>.
         </Note>
       ) : (
-        <>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="w-full"
-            disabled={finalize.isPending || receipt.isLoading}
-            onClick={async () => {
-              if (!(await wallet.ensureActiveChain())) return;
-              finalize.writeContract({
-                address: market.settler as `0x${string}`,
-                abi: settlerAbi,
-                functionName: 'finalizeVintage',
-                args: [market.onChainMarketId],
-                chainId: wallet.chainId,
-              });
-            }}
-          >
-            {finalize.isPending
-              ? 'Check your wallet…'
-              : receipt.isLoading
-                ? 'Closing the vintage…'
-                : 'Close the vintage'}
-          </Button>
-          <p className="text-xs leading-snug text-faint">
-            Only works from the next block onward, and anyone may call it — the next person to
-            enter this market closes it for you. Doing it yourself just means not waiting.
-          </p>
-        </>
+        <CloseVintageButton state={closer} />
       )}
 
       {explorer === null ? null : (
@@ -372,24 +358,5 @@ function Note({ children, tone = 'quiet' }: { children: React.ReactNode; tone?: 
   );
 }
 
-/**
- * Wallet errors are long and mostly for us. A rejection is the common case and
- * is not an error at all — it is someone changing their mind, and it should not
- * be shouted at them.
- */
-export function friendlyError(error: { message?: string } | null | undefined): string {
-  const message = error?.message ?? 'Something went wrong.';
-  if (/user rejected|denied transaction|rejected the request/i.test(message)) {
-    return 'You dismissed the request in your wallet. Nothing was sent.';
-  }
-  if (/insufficient funds/i.test(message)) {
-    return 'Not enough USDC to cover the stake and its gas. USDC is the gas token on Arc.';
-  }
-  if (/Frozen\(\)/.test(message)) {
-    return 'This market froze before the transaction landed. No entry can be accepted now.';
-  }
-  if (/NotOpen\(\)/.test(message)) {
-    return 'This market is no longer open.';
-  }
-  return message.split('\n')[0] ?? message;
-}
+// Shared with the close-vintage and claim flows; re-exported where it was first defined.
+export { friendlyError } from '@/lib/wallet/errors';

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 
 import { Amount, Badge, EmptyState, Stat } from '@/components/ui/primitives';
+import { awaitingVintage } from '@/lib/data/position-wire';
 import type { MarketDetail, OutcomeTone, PositionView } from '@/lib/data/types';
 import { formatUtc } from '@/lib/time';
 import { formatMultiple } from '@/lib/units';
@@ -61,6 +62,9 @@ function PositionRow({ market, position }: { market: MarketDetail; position: Pos
   const won = market.status === 'Resolved' && market.winner === position.outcome;
   const lost = market.status === 'Resolved' && market.winner !== position.outcome;
   const voided = market.status === 'Voided';
+  // Buffered: its accepted and refused read as zero because nothing is decided
+  // yet, not because the books took nothing. Say that instead of the zeros.
+  const awaiting = awaitingVintage(position);
 
   const claimable = position.claimed
     ? 0n
@@ -79,6 +83,7 @@ function PositionRow({ market, position }: { market: MarketDetail; position: Pos
         </span>
         <span className="num text-xs text-faint">#{position.positionId.toString()}</span>
         {position.vintage === 0n ? <Badge tone="quiet">Seed leg</Badge> : null}
+        {awaiting ? <Badge tone="note">Vintage open</Badge> : null}
         {won ? <Badge tone="up">Won</Badge> : null}
         {lost ? <Badge tone="down">Lost</Badge> : null}
         {voided ? <Badge tone="quiet">Voided</Badge> : null}
@@ -92,16 +97,32 @@ function PositionRow({ market, position }: { market: MarketDetail; position: Pos
         <Stat label="Offered">
           <Amount value={position.offered} />
         </Stat>
-        <Stat label="Accepted">
-          <Amount value={position.accepted} />
+        <Stat label="Accepted" hint={awaiting ? 'decided when the vintage closes' : undefined}>
+          {awaiting ? <span className="num text-muted">pending</span> : <Amount value={position.accepted} />}
         </Stat>
         <Stat
           label="Refused"
-          hint={position.refused === 0n ? undefined : position.refundWithdrawn ? 'already pulled back' : 'refundable now'}
+          hint={
+            awaiting
+              ? 'refundable at once, if any'
+              : position.refused === 0n
+                ? undefined
+                : position.refundWithdrawn
+                  ? 'already pulled back'
+                  : 'refundable now'
+          }
         >
-          <Amount value={position.refused} className={position.refused > 0n ? '' : 'text-muted'} />
+          {awaiting ? (
+            <span className="num text-muted">pending</span>
+          ) : (
+            <Amount value={position.refused} className={position.refused > 0n ? '' : 'text-muted'} />
+          )}
         </Stat>
-        {classic ? (
+        {awaiting ? (
+          <Stat label="Vested to it" hint="starts once the books accept it">
+            <span className="num text-muted">—</span>
+          </Stat>
+        ) : classic ? (
           <Stat label="Pool multiple" hint="The whole pool over this outcome’s principal. Every later stake cuts it.">
             <span className="num text-muted">{formatMultiple(multiple)}</span>
           </Stat>
@@ -113,6 +134,20 @@ function PositionRow({ market, position }: { market: MarketDetail; position: Pos
       </dl>
 
       <div className="mt-5 flex flex-wrap items-end justify-between gap-4 border-t border-edge pt-4">
+        {awaiting ? (
+          <div>
+            <p className="text-xs uppercase tracking-[0.12em] text-faint">In, awaiting the books</p>
+            <p className="mt-1.5 text-2xl leading-none">
+              <Amount value={position.offered} />
+              <span className="ml-2 text-sm text-muted">USDC</span>
+            </p>
+            <p className="mt-2 max-w-md text-xs leading-relaxed text-muted">
+              The full amount has left the wallet and sits with the settler. Entries landing in the
+              same block are rationed together when that block&rsquo;s vintage closes; until then
+              none of it is accepted, refused or earning.
+            </p>
+          </div>
+        ) : (
         <div>
           <p className="text-xs uppercase tracking-[0.12em] text-faint">
             {market.status === 'Open' ? 'If this outcome wins' : won ? 'Settlement' : voided ? 'Refund' : 'Settled at'}
@@ -129,6 +164,7 @@ function PositionRow({ market, position }: { market: MarketDetail; position: Pos
             </p>
           ) : null}
         </div>
+        )}
 
         {claimable + refundable > 0n ? (
           <Link

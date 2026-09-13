@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 
 import { dataSourceFor } from '@/lib/data';
+import { encodePositionEntry, type ApiPositions } from '@/lib/data/position-wire';
 import { requestNetwork } from '@/lib/data/request-network';
 
 /*
  * Positions for one address. Same shape of decision as /api/claimable: the
  * browser knows the address, the server holds the endpoint and its key, and
- * every bigint crosses as a decimal string. `network` picks the Arc.
+ * every bigint crosses as a decimal string. `network` picks the Arc. The wire
+ * format is `lib/data/position-wire.ts`, shared with the pages that read it.
  */
 
 export const dynamic = 'force-dynamic';
@@ -28,39 +30,8 @@ export async function GET(request: Request) {
   try {
     const source = dataSourceFor(network);
     const entries = await source.getPositions(address);
-    return NextResponse.json(
-      {
-        source: source.kind,
-        network,
-        entries: entries.map((entry) => ({
-          market: {
-            id: entry.market.id,
-            question: entry.market.question,
-            subject: entry.market.subject,
-            status: entry.market.status,
-            frozen: entry.market.frozen,
-            settlerKind: entry.market.settlerKind,
-            winner: entry.market.winner,
-            resolutionTime: entry.market.resolutionTime.toString(),
-            outcomes: entry.market.outcomes.map((outcome) => ({
-              outcome: outcome.outcome,
-              label: outcome.label,
-              tone: outcome.tone,
-            })),
-          },
-          position: {
-            id: entry.position.id,
-            positionId: entry.position.positionId.toString(),
-            outcome: entry.position.outcome,
-            offered: entry.position.offered.toString(),
-            accepted: entry.position.accepted.toString(),
-            refused: entry.position.refused.toString(),
-            enteredAt: entry.position.enteredAt.toString(),
-          },
-        })),
-      },
-      { headers: { 'cache-control': 'private, max-age=5' } },
-    );
+    const body: ApiPositions = { source: source.kind, network, entries: entries.map(encodePositionEntry) };
+    return NextResponse.json(body, { headers: { 'cache-control': 'private, max-age=5' } });
   } catch (error) {
     console.error('positions lookup failed', error);
     return NextResponse.json({ error: 'The index could not be reached.' }, { status: 502 });

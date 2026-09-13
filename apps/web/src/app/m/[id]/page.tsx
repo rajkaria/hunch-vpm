@@ -6,10 +6,11 @@ import { BookTable } from '@/components/market/BookTable';
 import { ContractsPanel } from '@/components/market/ContractsPanel';
 import { Countdown } from '@/components/market/Countdown';
 import { HeadroomBar } from '@/components/market/HeadroomBar';
+import { MarketRuleComparator } from '@/components/market/MarketRuleComparator';
 import { PositionGate } from '@/components/market/PositionGate';
 import { ResolutionPanel } from '@/components/market/ResolutionPanel';
 import { StakePanel } from '@/components/market/StakePanel';
-import { RuleComparator, type WireBook, type WirePosition } from '@/components/market/RuleComparator';
+import type { WireBook, WirePosition } from '@/components/market/RuleComparator';
 import { SettlerBadge, StatusBadge } from '@/components/market/StatusBadge';
 import { VestingCurve, type CurveSeries } from '@/components/market/VestingCurve';
 import { Amount, Badge, Panel, PanelHeader, Stat } from '@/components/ui/primitives';
@@ -238,7 +239,8 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
               title="Vested against classic"
               hint="The same money, the same books, settled under each rule. The difference is a number, not a claim."
             />
-            <RuleComparator
+            <MarketRuleComparator
+              marketId={market.id}
               books={wireBooks}
               positions={wirePositions}
               settlerKind={market.settlerKind}

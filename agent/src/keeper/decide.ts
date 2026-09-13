@@ -22,12 +22,19 @@ export interface SpecSnapshot {
   resolutionTime: bigint;
   /** From `specs`: the staleness bound the market settles against. */
   maxStaleness: bigint;
+  /**
+   * `false` when the oracle has never written this feed, so `preview` reverts (a relay that
+   * has not delivered its first price, say). That is a state of the chain, not a failure to
+   * read it, and `ready`, `winner` and `age` mean nothing while it holds.
+   */
+  hasReading: boolean;
 }
 
 export type KeeperAction =
   | { kind: 'unknown'; why: string }
   | { kind: 'done'; why: string }
   | { kind: 'too-early'; why: string; secondsRemaining: bigint }
+  | { kind: 'no-reading'; why: string }
   | { kind: 'stale'; why: string; age: bigint; bound: bigint }
   | { kind: 'resolve'; why: string; winner: number }
   | { kind: 'void-stale'; why: string; age: bigint; bound: bigint };
@@ -72,6 +79,17 @@ export function decide(
       kind: 'too-early',
       why: 'The market has not frozen yet.',
       secondsRemaining: snapshot.resolutionTime - now,
+    };
+  }
+
+  // Frozen, but the feed has never been written. `voidStale` would revert exactly as
+  // `preview` did, and a feed that has not started is no evidence that it never will, so
+  // this waits whatever voiding was authorised. The settler's own voidTimeout is the
+  // backstop if it truly never comes.
+  if (!snapshot.hasReading) {
+    return {
+      kind: 'no-reading',
+      why: 'Frozen, but the oracle has no reading for this feed yet. Waiting for the first one.',
     };
   }
 

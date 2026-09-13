@@ -711,6 +711,12 @@ committing a new market's entry is what puts it under the keeper.
 It never passes `--allow-void`. GitHub may run a schedule late, and that is harmless: the book
 froze at `resolutionTime`, whenever `resolve` actually lands.
 
+**A feed with no reading yet is not a failure.** Until the CRE relay delivers its first price,
+`ChainlinkCreOracle.read` reverts `NoValue()`, and so does `FeedResolver.preview`. The keeper
+reports such a spec as `no-reading` and waits, and never voids it, even with `--allow-void`. Only a
+transport error counts as a failed read. The first scheduled run, before that distinction existed,
+went red for exactly this reason.
+
 ## When the feed goes stale
 
 `resolve` reverts rather than voids when the reading is too old. That is deliberate: a keeper

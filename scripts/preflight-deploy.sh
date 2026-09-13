@@ -32,11 +32,27 @@ command -v cast  >/dev/null && ok "cast present"                        || bad "
 step "The signer"
 if [ -z "$ACCOUNT" ]; then
   bad "no keystore account given. Usage: preflight-deploy.sh <keystore-account> [testnet|mainnet]"
-elif cast wallet list 2>/dev/null | grep -qx "$ACCOUNT"; then
+# Foundry 1.5 prints each account with a kind suffix — "arc-deployer (Local)" —
+# so an exact-line match against the bare name refused a keystore that existed.
+elif cast wallet list 2>/dev/null | sed 's/ ([^)]*)$//' | grep -qx "$ACCOUNT"; then
   ok "keystore account '$ACCOUNT' exists"
 else
   bad "no keystore account called '$ACCOUNT'. Create one with: cast wallet import $ACCOUNT --interactive"
   printf '       (cast wallet list shows: %s)\n' "$(cast wallet list 2>/dev/null | tr '\n' ' ' | sed 's/ $//')"
+fi
+
+# ETH_PASSWORD is Foundry's own variable for a keystore PASSWORD FILE path (not
+# the password). When it is set, cast and forge read the keystore without a
+# prompt, and this check can read the deployer's address and balance.
+PASSWORD_FILE="${ETH_PASSWORD:-}"
+PASSWORD_FLAGS=()
+if [ -n "$PASSWORD_FILE" ]; then
+  if [ -r "$PASSWORD_FILE" ]; then
+    ok "ETH_PASSWORD points at a readable password file — no prompt"
+    PASSWORD_FLAGS=(--password-file "$PASSWORD_FILE")
+  else
+    bad "ETH_PASSWORD is set but $PASSWORD_FILE is not a readable file"
+  fi
 fi
 
 step "The endpoint"
@@ -58,10 +74,12 @@ fi
 
 step "Gas, which on Arc is USDC"
 if [ -n "$RPC" ] && [ -n "$ACCOUNT" ]; then
-  ADDR="$(cast wallet address --account "$ACCOUNT" 2>/dev/null || true)"
+  # stdin from /dev/null: without a password file cast would otherwise sit on a
+  # hidden prompt, and a preflight that hangs is one nobody finishes reading.
+  ADDR="$(cast wallet address --account "$ACCOUNT" ${PASSWORD_FLAGS[@]+"${PASSWORD_FLAGS[@]}"} </dev/null 2>/dev/null || true)"
   if [ -z "$ADDR" ]; then
     warn "could not read the address without the keystore password — skipping the balance check"
-    warn "run: cast balance \$(cast wallet address --account $ACCOUNT) --rpc-url \"\$$RPC_VAR\""
+    warn "set ETH_PASSWORD to a password file, or run: cast balance \$(cast wallet address --account $ACCOUNT) --rpc-url \"\$$RPC_VAR\""
   else
     ok "deployer is $ADDR"
     BAL="$(cast balance "$ADDR" --rpc-url "$RPC" 2>/dev/null || echo 0)"
@@ -71,8 +89,14 @@ if [ -n "$RPC" ] && [ -n "$ACCOUNT" ]; then
     # times too large, which is exactly the check most likely to wave through
     # an empty deployer.
     HUMAN="$(cast to-unit "$BAL" 18 2>/dev/null || echo '?')"
+    # The full deploy simulated at ~7.35M gas, ~0.30 USDC. Refuse below 0.35
+    # (0.35e18 native units): running out between contract four and five leaves
+    # a half-deployed layer. A value longer than 18 digits is already >= 1.
+    MIN_WEI=350000000000000000
     if [ "$BAL" = "0" ]; then
       bad "deployer holds NO USDC. It is the gas token here — nothing can be sent"
+    elif [ "${#BAL}" -le 18 ] && [ "$BAL" -lt "$MIN_WEI" ]; then
+      bad "deployer holds $HUMAN USDC; the deploy needs ~0.30. Fund it to at least 0.35 first"
     else
       ok "deployer holds $HUMAN USDC (native view, 18 decimals)"
     fi
@@ -128,12 +152,17 @@ fi
 if [ "$FAIL" -ne 0 ]; then
   printf '\n\033[31mNOT READY.\033[0m Fix the ✗ lines above. Nothing was sent.\n'; exit 1
 fi
+PASSWORD_ARG=""
+[ -n "$PASSWORD_FILE" ] && PASSWORD_ARG=" --password-file $PASSWORD_FILE"
 printf '\n\033[32mREADY.\033[0m The deploy command:\n\n'
 cat <<CMD
   ORACLE_KIND=${KIND} \\
   forge script contracts/script/Deploy.s.sol \\
-    --root contracts --rpc-url ${ALIAS} --account ${ACCOUNT} --broadcast${VERIFY_FLAGS} \\
+    --root contracts --rpc-url ${ALIAS} --account ${ACCOUNT}${PASSWORD_ARG} --broadcast${VERIFY_FLAGS} \\
     | tee deploy.log
 
   sed -n '/^  {\$/,/^  }\$/p' deploy.log | sed 's/^  //' > deployments/arc-${NETWORK}.json
+
+  # then carry the addresses and their deploy blocks into every reader:
+  pnpm wire:${NETWORK}
 CMD

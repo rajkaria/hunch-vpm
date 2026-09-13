@@ -420,11 +420,13 @@ fixture dataset and says so. **Arc testnet is live:** its two subgraph URLs and
 Mainnet has none of them yet, so it serves fixtures.
 
 The repository is a pnpm workspace, and `vercel.json` builds it from the root with a filter
-(`pnpm --filter @hunch-vpm/web... build`) rather than setting a Root Directory, because the app
-extends `../../tsconfig.base.json`. **The trailing `...` matters.** It builds the web app's
-workspace dependencies first. The live data source loads `@hunch-vpm/client` from its `dist` at
-runtime, and without the dots Vercel failed while collecting page data for `/m/[id]` with
-`Cannot find module …/@hunch-vpm/client/dist/index.js`. If you configure a project by hand in the dashboard
+(`pnpm --filter @hunch-vpm/web build`) rather than setting a Root Directory, because the app
+extends `../../tsconfig.base.json`. **The web app's `build` script builds `@hunch-vpm/client`
+first**, and `live.ts` imports the client by a literal specifier, so it is compiled into the
+server bundle. Both halves were needed. When the import went through a variable, the bundler
+never saw the client. Vercel then failed at build time (`Cannot find module
+…/@hunch-vpm/client/dist/index.js`), and once that was patched, at runtime: the function's file
+trace did not contain the client, so every live read answered "The index could not be reached." If you configure a project by hand in the dashboard
 instead, point it at the app directory:
 
 | Setting | Value |

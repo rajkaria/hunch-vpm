@@ -51,8 +51,13 @@ published to the Network. Query URLs: `https://api.studio.thegraph.com/query/176
 
 **Vercel** (`hunch-vpm`, linked in this worktree): `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET`,
 `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` and `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` (both ids)
-are set for prod, preview and dev. PR #10's preview failed with `Cannot find module
-@hunch-vpm/client/dist`; the fix is `vercel.json` buildCommand `pnpm --filter @hunch-vpm/web... build`.
+are set for prod, preview and dev. PR #10's preview first failed at build (`Cannot find module
+@hunch-vpm/client/dist`). With that patched, the live reads failed at runtime ("The index could not be
+reached"), because `live.ts` imported the client through a variable specifier. Nothing bundled it,
+so the function's file trace had no client. Fix: a literal `import('@hunch-vpm/client')` (with
+`@ts-ignore`), web `build`/`dev` scripts that build the client first, and vitest aliasing the client
+to its source. Turbopack cannot alias the client to source, because it won't map `.js`→`.ts` in
+workspace packages.
 
 **Keeper:** `.github/workflows/keeper.yml` runs every 10 min on `main`, taking spec ids from the
 deployments file. It is a dry run until the `KEEPER_PRIVATE_KEY` repo secret exists.

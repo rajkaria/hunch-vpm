@@ -5,6 +5,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Same as next.config.mjs: the client from source, so tests never need its `dist`.
+      '@hunch-vpm/client': fileURLToPath(new URL('../../packages/client/src/index.ts', import.meta.url)),
     },
   },
   esbuild: {

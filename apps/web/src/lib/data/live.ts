@@ -167,14 +167,21 @@ export interface LiveSourceOptions {
 /**
  * Load the client once, lazily.
  *
- * The specifier goes through a variable so the bundler and the compiler both
- * leave it alone; see the note at the top of this file for why that matters.
+ * The specifier is a literal so the bundler compiles the client into the server
+ * bundle. It used to go through a variable, which kept it out of the bundler's
+ * sight — and out of Vercel's file trace, so every deployed function failed
+ * with "Cannot find module" and every live read became "the index could not be
+ * reached". The bundle is built from the client's `dist`, which the web app's
+ * own `build` script produces first; `vitest.config.ts` points tests at the
+ * client's source, so tests never need `dist`. The compiler is still told
+ * nothing about it (see the note at the top of this file): the local
+ * interfaces are the contract.
  */
 let clientModule: Promise<ClientModule> | null = null;
 function loadClient(): Promise<ClientModule> {
   if (clientModule === null) {
-    const specifier = '@hunch-vpm/client';
-    clientModule = import(/* webpackIgnore: true */ specifier) as Promise<ClientModule>;
+    // @ts-ignore -- deliberately untyped here; `tsc` may run before the client's `dist` exists.
+    clientModule = import('@hunch-vpm/client') as Promise<ClientModule>;
   }
   return clientModule;
 }

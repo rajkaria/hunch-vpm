@@ -156,14 +156,19 @@ export function EntryFlow({
           size="sm"
           className="w-full"
           disabled={sending || waiting}
-          onClick={() =>
+          onClick={async () => {
+            // Switch first, then send — and pin the chain on the write itself so
+            // wagmi refuses outright if the wallet moved in between. An approval
+            // to 0x3600…0000 on any other chain is the failure this prevents.
+            if (!(await wallet.ensureActiveChain())) return;
             approve.writeContract({
               address: usdc,
               abi: erc20Abi,
               functionName: 'approve',
               args: [settler, offered],
-            })
-          }
+              chainId: wallet.chainId,
+            });
+          }}
         >
           {approve.isPending
             ? 'Check your wallet…'
@@ -176,14 +181,16 @@ export function EntryFlow({
           size="sm"
           className="w-full"
           disabled={sending || waiting || short || offered <= 0n}
-          onClick={() =>
+          onClick={async () => {
+            if (!(await wallet.ensureActiveChain())) return;
             enter.writeContract({
               address: settler,
               abi: settlerAbi,
               functionName: 'enter',
               args: [market.onChainMarketId, outcome, offered],
-            })
-          }
+              chainId: wallet.chainId,
+            });
+          }}
         >
           {enter.isPending
             ? 'Check your wallet…'
@@ -225,6 +232,7 @@ function BufferedResult({
   acceptance: Acceptance;
   explorer: string | null;
 }) {
+  const wallet = useWallet();
   const finalize = useWriteContract();
   const receipt = useWaitForTransactionReceipt({ hash: finalize.data });
   const done = receipt.data !== undefined;
@@ -270,14 +278,16 @@ function BufferedResult({
             variant="ghost"
             className="w-full"
             disabled={finalize.isPending || receipt.isLoading}
-            onClick={() =>
+            onClick={async () => {
+              if (!(await wallet.ensureActiveChain())) return;
               finalize.writeContract({
                 address: market.settler as `0x${string}`,
                 abi: settlerAbi,
                 functionName: 'finalizeVintage',
                 args: [market.onChainMarketId],
-              })
-            }
+                chainId: wallet.chainId,
+              });
+            }}
           >
             {finalize.isPending
               ? 'Check your wallet…'

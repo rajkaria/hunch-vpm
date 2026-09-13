@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useAccount, useChainId, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
+import { useAccount, useConnect, useDisconnect, useSwitchChain } from 'wagmi';
 
 import { useNetwork } from './network';
 
@@ -26,10 +26,20 @@ export interface WalletState {
   disconnect: () => void;
   /** Ask the wallet to switch to — or add — the selected chain. */
   switchToActive: () => void;
+  /**
+   * Resolve once the wallet is on the selected chain, prompting a switch (or an
+   * add) first if it is not. `false` means the wallet refused or could not, and
+   * nothing should be sent. Every write goes through this.
+   */
+  ensureActiveChain: () => Promise<boolean>;
   error: string | null;
   chainName: string;
   /** The chain id the surface is pointed at, which is the viewer's choice. */
   chainId: number;
+  /** The chain the wallet is actually on — including chains this app has never heard of. */
+  walletChainId: number | null;
+  /** Whether a wallet can be asked to add the selected chain (it has a public RPC). */
+  canSwitch: boolean;
 }
 
 /**
@@ -42,11 +52,26 @@ export interface WalletState {
  * send an approval to whatever token sits at that address on mainnet.
  */
 export function useWallet(): WalletState {
-  const { address, isConnected } = useAccount();
-  const chainId = useChainId();
+  /*
+   * The wallet's chain comes from the ACCOUNT, never from `useChainId()`.
+   *
+   * `useChainId()` reads wagmi's config state, and wagmi deliberately refuses to
+   * move that state onto a chain the config does not list ("If chain is not
+   * configured, then don't switch over to it" — @wagmi/core createConfig). So a
+   * wallet sitting on Robinhood Chain, Base, or anything else reported the last
+   * Arc it had seen, `wrongChain` was false, and the approve button sent an
+   * approval to 0x3600…0000 on whatever chain the wallet was really on. The
+   * account's chain id is the connection's own and has no such filter.
+   */
+  const { address, isConnected, chainId: accountChainId } = useAccount();
   const { connect, connectors, isPending: connecting, error: connectError } = useConnect();
   const { disconnect } = useDisconnect();
-  const { switchChain, isPending: switching, error: switchError } = useSwitchChain();
+  const {
+    switchChain,
+    switchChainAsync,
+    isPending: switching,
+    error: switchError,
+  } = useSwitchChain();
 
   /*
    * Whether the browser actually has an injected provider. Resolved after mount
@@ -73,6 +98,21 @@ export function useWallet(): WalletState {
     switchChain({ chainId: selected.id });
   }, [switchChain, selected.id]);
 
+  const status = chainStatus(isConnected, accountChainId, selected.id);
+
+  const ensureActiveChain = useCallback(async () => {
+    if (!isConnected) return false;
+    if (accountChainId === selected.id) return true;
+    try {
+      const switched = await switchChainAsync({ chainId: selected.id });
+      return switched.id === selected.id;
+    } catch {
+      // Rejected, or the wallet cannot add the chain. `switchError` carries the
+      // message for the UI; the caller only needs to know not to send.
+      return false;
+    }
+  }, [isConnected, accountChainId, selected.id, switchChainAsync]);
+
   const list = useMemo(
     () =>
       usableConnectors(connectors, injectedReady).map((connector) => ({
@@ -83,22 +123,63 @@ export function useWallet(): WalletState {
     [connectors, connect, injectedReady],
   );
 
-  const onActive = isConnected && chainId === selected.id;
-
   return {
     address: isConnected && address !== undefined ? address : null,
-    ready: onActive,
-    wrongChain: isConnected && !onActive,
+    ready: status.ready,
+    wrongChain: status.wrongChain,
     connecting,
     switching,
     connectors: list,
     noWallet: list.length === 0,
     disconnect: () => disconnect(),
     switchToActive,
+    ensureActiveChain,
     error: connectError?.message ?? switchError?.message ?? null,
     chainName: facts.name,
     chainId: selected.id,
+    walletChainId: isConnected && accountChainId !== undefined ? accountChainId : null,
+    canSwitch: selected.rpcUrls.default.http.length > 0,
   };
+}
+
+/**
+ * Whether a connection is on the chain this surface transacts on.
+ *
+ * `walletChainId` must be the connection's own chain id. An unknown chain id is
+ * wrong, and so is a missing one: a connected wallet that has not reported a
+ * chain has not proven it is on Arc, and "ready" is what unlocks the send buttons.
+ *
+ * Pure and exported so the rule is testable without a wallet.
+ */
+export function chainStatus(
+  isConnected: boolean,
+  walletChainId: number | undefined,
+  selectedChainId: number,
+): { ready: boolean; wrongChain: boolean } {
+  if (!isConnected) return { ready: false, wrongChain: false };
+  const ready = walletChainId === selectedChainId;
+  return { ready, wrongChain: !ready };
+}
+
+/**
+ * Whether to open the wallet's switch-network prompt without being asked.
+ *
+ * Once per (address, wallet chain, selected chain): a visitor who dismisses the
+ * prompt is not asked again until something changes — they switch accounts,
+ * move the wallet somewhere else, or flip the toggle — because a wallet popup
+ * that reopens every render is a site nobody can use. Never when the selected
+ * chain cannot be added (mainnet before Circle publishes an RPC), since that
+ * prompt could only fail.
+ */
+export function switchPromptKey(wallet: {
+  wrongChain: boolean;
+  canSwitch: boolean;
+  address: string | null;
+  walletChainId: number | null;
+  chainId: number;
+}): string | null {
+  if (!wallet.wrongChain || !wallet.canSwitch || wallet.address === null) return null;
+  return `${wallet.address.toLowerCase()}:${wallet.walletChainId ?? 'unknown'}:${wallet.chainId}`;
 }
 
 /**

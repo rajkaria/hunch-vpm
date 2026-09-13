@@ -95,6 +95,13 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
   it and is public by design).
 - **Network is the viewer's explicit choice**; switching never moves the wallet — a mismatch is
   a visible wrong-chain state. Default testnet.
+- **Wallet chain comes from `useAccount().chainId`, never `useChainId()`.** wagmi won't move its
+  config chain onto an unconfigured chain, so a wallet on Robinhood Chain read as Arc, no prompt
+  showed and "Approve USDC" sent on the wrong chain (fixed 2026-09-13). Now a wrong chain opens
+  the wallet's switch/add prompt automatically (`NetworkBanner`, once per account + wallet chain +
+  selected chain). Every write also calls `ensureActiveChain()` and pins `chainId` on
+  `writeContract`. No auto-prompt on mainnet until it has an RPC (`canSwitch`). Tests:
+  `wallet-chain.test.tsx`.
 - **Mainnet notice is not dismissible.**
 - **Native 18 / ERC-20 6** — `nativeCurrency` is the native view; every amount the app handles
   is the ERC-20 view.

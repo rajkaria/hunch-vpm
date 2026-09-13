@@ -5,7 +5,7 @@ afterEach(cleanup);
 
 const wagmi = vi.hoisted(() => ({ chainId: 5042002 }));
 vi.mock('wagmi', () => ({
-  useAccount: () => ({ address: undefined, isConnected: false }),
+  useAccount: () => ({ address: undefined, isConnected: false, chainId: undefined }),
   useChainId: () => wagmi.chainId,
   useConnect: () => ({ connect: () => {}, connectors: [], isPending: false, error: null }),
   useDisconnect: () => ({ disconnect: () => {} }),

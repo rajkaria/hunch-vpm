@@ -64,6 +64,10 @@ track titles. Read them off the ETHOnline page and replace the callout under *In
 
 ### 3. Deploy the `erc8004-arc` subgraph **[you]** → then **[either]**
 
+**Done 2026-09-13.** `erc-8004-arc-testnet` v0.0.1 is live on Studio with no indexing errors. It was still
+backfilling at 10:19 UTC (block 46.87M of 61.88M). The rate has swung between 0.24M and 1.7M blocks/h,
+so check `_meta.block` again before recording `/agents`.
+
 **This does not wait on anything else.** Arc testnet's three ERC-8004 registries are live,
 they are not ours to deploy, and their addresses and start blocks are already committed in
 `subgraph-erc8004-arc/networks.json`.
@@ -88,6 +92,8 @@ What is needed from you: a Graph Studio deploy key.
 **Done when:** Studio shows the subgraph syncing and hands back a development query URL.
 
 ### 4. Point `/agents` at it **[either]**
+
+**Done 2026-09-13.** `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` is set in Vercel.
 
 Set `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL` in the Vercel project to the Studio **development query
 URL** and redeploy.
@@ -162,6 +168,8 @@ Six places read them and **none are wired to each other**:
 
 ### 7. Deploy the `hunch-vpm` subgraph **[either]**
 
+**Done 2026-09-13.** `hunch-vpm-arc-testnet` v0.0.1 is at chain head with no indexing errors.
+
 Same Studio key as step 3, second subgraph, after step 6:
 
 ```sh
@@ -175,6 +183,9 @@ Addresses and start blocks are already wired (`pnpm wire:testnet`, 2026-09-13).
 
 ### 8. Take the surface off fixtures **[either]**
 
+**Done 2026-09-13 (testnet).** The production board lists both live markets from the subgraph and
+shows no console errors. Mainnet still serves fixtures and says so, as it should until mainnet is deployed.
+
 Set `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` (keyless Studio URL — same warning as step 4),
 `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` and `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` in Vercel,
 then redeploy.
@@ -185,6 +196,14 @@ sets `dynamicParams = false`. A market not listed there has no page.
 **Done when:** the **SAMPLE DATA** banner is gone and the board lists real markets.
 
 ### 9. Open a market, and resolve one **[you]**
+
+**Half done.** Two markets opened on 2026-09-13; BTC / USD freezes 2026-09-15 16:00 UTC. **Resolving
+is blocked on Chainlink**: the CRE price relay needs deploy access, which `cre whoami` shows as
+*Not enabled*. Run `cre account access` in a terminal now. After it is granted, follow
+[`cre/README.md`](../cre/README.md) (deploy, `setExpectedWorkflowId`, confirm a price, `lock()`).
+The keeper resolves on its own once `KEEPER_PRIVATE_KEY` is set. If the relay misses the freeze,
+the market voids and refunds after its 3-day timeout. That is still a demonstrable, honest
+outcome, but not the one to film.
 
 The demo is far stronger with one real market that actually settled.
 

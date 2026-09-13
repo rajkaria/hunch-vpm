@@ -1,5 +1,6 @@
 import { AddressLink } from '@/components/market/AddressLink';
 import { Badge } from '@/components/ui/primitives';
+import type { ChainFacts } from '@/lib/chain';
 import type { MarketDetail } from '@/lib/data/types';
 import { formatDuration, formatUtc } from '@/lib/time';
 import { formatPrice, shortHex } from '@/lib/units';
@@ -13,7 +14,7 @@ import { formatPrice, shortHex } from '@/lib/units';
  * registered, so none of it can be edited after stake is down — which is the
  * reason it is worth printing rather than summarising.
  */
-export function ResolutionPanel({ market }: { market: MarketDetail }) {
+export function ResolutionPanel({ market, chain }: { market: MarketDetail; chain: ChainFacts }) {
   const spec = market.spec;
 
   if (spec === null) {
@@ -47,7 +48,7 @@ export function ResolutionPanel({ market }: { market: MarketDetail }) {
         <Row label="Oracle">
           <span className="text-sm">{spec.oracleName}</span>
           <div className="mt-1">
-            <AddressLink address={spec.oracle} />
+            <AddressLink address={spec.oracle} chain={chain} />
           </div>
         </Row>
 

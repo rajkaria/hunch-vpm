@@ -64,7 +64,10 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
 
 **Broken / absent:**
 - **Pages are now dynamic** (cookie) — no ISR on board/market/agents. Fine on Fluid compute; revisit if load matters.
-- Client components with no network prop (`AddressLink` default) still link testnet's explorer.
+- ~~Client components with no network prop still link testnet's explorer~~ — **fixed on
+  `claude/cre-login-error-5472df`**: `ResolutionPanel` (new required `chain` prop), `ClaimList` rows
+  (`useNetwork`) and the agents table rows now pass the network's `ChainFacts`. Web typecheck and
+  228 tests are green.
 - **`next dev` quirk:** after a toggle, `router.refresh()` can leave the market page's own segment stale while the layout updates. `next start` refreshes it correctly — browser-verified testnet → mainnet → testnet on the production build (contracts panel, footer, cookie, no console errors). Verify network switching on a build, not dev.
 - **Mainnet cannot add-to-wallet** until `NEXT_PUBLIC_ARC_RPC_URL`; explorer links suppressed until `NEXT_PUBLIC_ARC_EXPLORER_URL`.
 - `ARC_MAINNET_ADDRESSES` all placeholders. No per-market OG image; no rate limiting on the API routes.
@@ -109,5 +112,9 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
 1. After PR #10 merges and a market is opened + its id set in `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`
    (deploy-ops next steps 1-3): browser-verify the live board, market page and portfolio on the
    production URL, then walk approve → enter → partial → close vintage → claim → void on testnet.
-2. Pass the selected network's `ChainFacts` to client-side `AddressLink`s (StakePanel, ClaimList).
+2. ~~Pass the selected network's `ChainFacts` to client-side `AddressLink`s~~ — done (see Broken / absent).
+   The real-wallet walk is still owed. On production testnet: connect → approve → enter (check the acceptance
+   estimate matches the `offered`/`accepted` split) → claim. There is no resolved market until the CRE
+   relay delivers, so the testable claim today is a **refused remainder**: stake past a book's
+   headroom, then pull it back.
 3. After mainnet launch: mainnet RPC/explorer env, addresses via `pnpm wire:mainnet`; rate-limit the API routes.

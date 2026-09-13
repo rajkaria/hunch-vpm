@@ -19,6 +19,9 @@ subgraph-erc8004-arc/generated/
 subgraph-erc8004-arc/build/
 substreams/target/
 *.wasm
+# CRE CLI compile outputs (cre workflow simulate / deploy)
+cre/**/.cre_build_tmp.js
+cre/**/*.wasm.br.b64
 
 # Tests
 coverage/

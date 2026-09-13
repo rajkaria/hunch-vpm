@@ -542,6 +542,37 @@ validates the shape before it encodes: at least two outcomes, every leg positive
 a 32-byte `feedKey`, and every integer inside its field width. It holds no key and signs
 nothing.
 
+### With the checked script (use this on mainnet)
+
+`contracts/script/OpenMarket.s.sol` does every check against the live chain first, then prints the
+two `cast send` commands, the market and spec ids they will produce, and the `markets[]` entry
+for the deployments file. **It sends nothing.**
+
+It refuses rather than prints when an address has no code, the freeze is not in the future, the
+sender does not hold the whole seed, or — the one that matters most — the oracle does not answer
+for the feed key *right now* with a reading no older than the market's own `maxStaleness`. A
+market opened on a feed that does not read can only ever void. `SKIP_FEED_CHECK=true` turns that
+last check off, for a relay that has not delivered yet.
+
+```sh
+MARKET_FACTORY=0x... SETTLER=0x... ORACLE=0x... CHAINLINK_FEED=0x50FCDD99D6762D1C170DC6A9111db944AEE6D364 \
+STRIKE8=250000000000 RESOLUTION_TIME=1790000000 MAX_STALENESS=90000 SEED_PER_SIDE=2000000 ACCOUNT=arc-deployer \
+forge script contracts/script/OpenMarket.s.sol --root contracts \
+  --rpc-url "$ARC_MAINNET_RPC_URL" --sender <deployer address>
+```
+
+`CHAINLINK_FEED` is for `ChainlinkFeedOracle` (the aggregator address, left-padded into the key);
+`FEED_KEY` is the raw `bytes32` for any other adapter. The rest of the variables and their
+defaults are in the script's header. Run the two printed commands in order, then check both ids
+against the `MarketOpened` log before committing the entry.
+
+**Why it prints instead of broadcasting.** Arc's USDC calls a blocklist precompile at
+`0x1800…0001` inside every `transferFrom`, and forge's local EVM does not implement it. Every
+forge-*simulated* USDC transfer on Arc reverts with `StackUnderflow`, and `forge script
+--broadcast` simulates before it sends. So forge does the reads and refusals, and `cast send`
+does the sending, because it goes through the node. The same trap applies to any future forge
+script that moves USDC on Arc.
+
 ### The markets open on Arc testnet
 
 Both were opened on 2026-09-13 by the deployer through MarketFactory. Each is seeded with 2 USDC
@@ -582,8 +613,12 @@ have a one-hour heartbeat, which is why the testnet markets allow 5400 s.
 1. Deploy the adapter: `forge script script/DeployCreOracle.s.sol --rpc-url arc_testnet --broadcast --account <acct>`.
 2. Open markets whose spec names the adapter and `cast keccak "<PAIR>"` as the feed key.
 3. `cd cre/price-relay && bun install && bun test`.
-4. **Operator:** `cre login`, then `cre account access` to request deploy access. Once it is granted,
-   run `cre workflow deploy price-relay --target production-settings` from `cre/`.
+4. **Operator:** install the CLI (`curl -sSL https://app.chain.link/cre/install.sh | bash`, see
+   `cre/README.md`), `cre login`, then `cre account access` on a real terminal to request deploy
+   access. Once it is granted, run `cre workflow deploy price-relay --target production-settings`
+   from `cre/`. **As of 2026-09-13:** CLI v1.33.0 is logged in (org `org_XOTc8zpv3UbdxKar`), deploy
+   access is *Not enabled*, and `cre workflow simulate price-relay --target staging-settings
+   --non-interactive --trigger-index 0` passes with live Sepolia reads.
 5. **Operator:** `setExpectedWorkflowId` / `setExpectedAuthor` on the adapter with the values
    `cre` prints, then `lock()` it once the first `PriceRelayed` event lands.
 
@@ -693,20 +728,39 @@ It exits non-zero only when a call was attempted and reverted, so cron's own
 mail-on-failure is a usable alert. A spec that is simply not ready is not a
 failure and does not page anyone.
 
-### Scheduled on GitHub Actions (what Arc testnet uses)
+### Scheduled on GitHub Actions (both networks)
 
-`.github/workflows/keeper.yml` runs one pass every 10 minutes on `main`. It also has a
-**Run workflow** button. It takes the spec ids from `deployments/arc-testnet.json` (`markets[].specId`), so
-committing a new market's entry is what puts it under the keeper.
+`.github/workflows/keeper.yml` runs one pass per network every 10 minutes on `main`, as a two-job
+matrix (`settle (testnet)`, `settle (mainnet)`). It also has a **Run workflow** button. Each job
+takes its spec ids from `deployments/arc-<network>.json` (`markets[].specId`), so committing a new
+market's entry is what puts it under the keeper.
 
-- **No `KEEPER_PRIVATE_KEY` secret: dry run.** It reports what it would send and sends nothing.
-- **With the secret: live.** Create a fresh key that is not the deployer's, fund it with about
-  1 testnet USDC at <https://faucet.circle.com>, and store it as a repository secret:
+| | Testnet | Mainnet |
+|---|---|---|
+| Deployments file | `deployments/arc-testnet.json` | `deployments/arc-mainnet.json`. Absent → the job is a no-op notice |
+| RPC | `https://rpc.testnet.arc.io` | repository **variable** `ARC_MAINNET_RPC_URL`, no default |
+| Key | secret `KEEPER_PRIVATE_KEY` | secret `KEEPER_PRIVATE_KEY_MAINNET` |
+
+Before it builds anything, each job checks the file's `chainId` and asks the RPC for `eth_chainId`.
+A deployed mainnet with no RPC variable, or an endpoint answering another chain, fails that job
+red every run until it is fixed.
+
+- **No key secret: dry run.** It reports what it would send and sends nothing.
+- **With the secret: live.** Create a fresh key that is not the deployer's, fund it (about
+  1 testnet USDC at <https://faucet.circle.com>; about 1 real USDC on mainnet), and store it:
 
   ```sh
-  cast wallet new                       # note the address and private key
-  gh secret set KEEPER_PRIVATE_KEY      # paste the private key at the prompt
+  cast wallet new                               # note the address and private key
+  gh secret set KEEPER_PRIVATE_KEY              # testnet: paste the private key at the prompt
+  gh secret set KEEPER_PRIVATE_KEY_MAINNET      # mainnet: a different key
+  gh variable set ARC_MAINNET_RPC_URL --body <Arc's published mainnet RPC>
   ```
+
+**Check that the schedule is actually firing.** On 2026-09-13 the workflow had run only by hand:
+two `workflow_dispatch` runs and **zero** `schedule` runs in the two hours after it merged
+(`gh api repos/rajkaria/hunch-vpm/actions/runs?event=schedule` → `total_count: 0`). A push that
+changes the workflow file re-registers the schedule. If `gh run list --workflow keeper.yml
+--event schedule` is still empty an hour after that, press **Run workflow** before a freeze.
 
 It never passes `--allow-void`. GitHub may run a schedule late, and that is harmless: the book
 froze at `resolutionTime`, whenever `resolve` actually lands.
@@ -794,17 +848,36 @@ The code is ready, and the steps are the testnet ones with three differences.
   both on docs.arc.io at launch, and do not use third-party endpoints.
 - The **ERC-8004 registries**' mainnet addresses, for the reputation subgraph and `/agents`.
 
+**Where the money goes.** Two addresses, both funded with **native USDC on Arc mainnet** (USDC is
+the gas token, so the ERC-20 balance at `0x3600…0000` and the native balance are the same money):
+
+| Address | What it pays for | Send |
+|---|---|---|
+| Deployer, keystore `arc-deployer`: **`0x763e4A729cF78e33B8fdE36B9b6f29bBce120dE0`** (the same key that deployed testnet, so the same address) | Gas for the five contracts (~0.12 USDC on testnet; the preflight refuses below 0.35) and every market's seed (2 USDC × 2 sides per market) | **10 USDC**: 0.5 gas headroom, 8 for two markets, the rest for a third or a retry |
+| Keeper: a **new** key from `cast wallet new`, never the deployer | Gas for `resolve`, nothing else | **1 USDC** |
+
+Send a small test amount first and read it back with `cast balance <address> --rpc-url
+"$ARC_MAINNET_RPC_URL" --ether` before sending the rest. Nothing about a keeper key is
+privileged, so a leak costs at most its gas float.
+
 **Order of operations:**
 
-1. Fund a mainnet deployer keystore with real USDC: about 0.35 for gas, plus the seeds.
-2. `ARC_MAINNET_RPC_URL=… ARC_VERIFIER_URL=<blockscout api> ORACLE_KIND=chainlink bash scripts/preflight-deploy.sh <acct> mainnet`,
-   then the command it prints.
+1. Confirm the official RPC and explorer on docs.arc.io (`cast chain-id` must print `5042`). Fund
+   the two addresses above.
+2. `ARC_MAINNET_RPC_URL=… ARC_VERIFIER_URL=<blockscout api> ORACLE_KIND=chainlink bash scripts/preflight-deploy.sh arc-deployer mainnet`,
+   then run the command it prints.
 3. Cut `deployments/arc-mainnet.json`, then run `pnpm wire:mainnet` and `pnpm verify`.
 4. Create the `hunch-vpm-arc` Studio subgraph (network `arc`), then `pnpm --filter @hunch-vpm/subgraph deploy:mainnet`.
-5. Open markets on the Chainlink feed addresses. Set `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_MAINNET`,
-   `NEXT_PUBLIC_HUNCH_MARKET_IDS_MAINNET`, `NEXT_PUBLIC_ARC_RPC_URL` and `NEXT_PUBLIC_ARC_EXPLORER_URL`
-   in Vercel.
-6. Add a mainnet keeper job with its own funded key.
+5. Open markets with `OpenMarket.s.sol` (see *Opening a market*): `ORACLE` = the deployed
+   `priceOracle` (ChainlinkFeedOracle), `CHAINLINK_FEED` = `0x50FCDD99D6762D1C170DC6A9111db944AEE6D364`
+   (ETH / USD) or `0xa109B535C70C8Be9995be64Bb6751AcDB27e03De` (BTC / USD), and
+   `MAX_STALENESS` ≥ 90000. The script refuses if the feed does not read on mainnet. Add each
+   printed entry to `markets[]` in `deployments/arc-mainnet.json`.
+6. In Vercel set `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_MAINNET`, `NEXT_PUBLIC_HUNCH_MARKET_IDS_MAINNET`,
+   `NEXT_PUBLIC_ARC_RPC_URL` and `NEXT_PUBLIC_ARC_EXPLORER_URL`, then redeploy (market routes are
+   static).
+7. Keeper: `gh variable set ARC_MAINNET_RPC_URL`, `gh secret set KEEPER_PRIVATE_KEY_MAINNET`. The
+   `settle (mainnet)` job starts working the moment `deployments/arc-mainnet.json` is on `main`.
 
 **The contracts are not audited.** The web surface already shows a non-dismissible notice on
 mainnet. Keep seeds small until that changes.

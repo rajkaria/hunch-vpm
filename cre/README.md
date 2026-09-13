@@ -45,6 +45,16 @@ directory).
 
 Needs [bun](https://bun.com) ≥ 1.2.21 and the CRE CLI with a Chainlink account.
 
+**Install the CLI first** — `cre` is not a package in this repo, so `cre login` on a fresh machine
+fails with `command not found: cre`. Chainlink's installer puts the binary in `~/.cre/bin` and
+appends a `# cre` PATH line to `~/.zshrc` (no sudo):
+
+```bash
+curl -sSL https://app.chain.link/cre/install.sh | bash
+source ~/.zshrc
+cre version            # v1.33.0 was current on 2026-09-13; anything ≥ 1.0.7 works
+```
+
 ```bash
 cd cre/price-relay
 bun install            # postinstall runs `bun x cre-setup` (the Javy plugin)
@@ -61,10 +71,21 @@ cre whoami                                     # shows the workflow owner addres
 cre workflow deploy price-relay --target production-settings
 ```
 
-Deploying needs **deploy access**, which Chainlink grants per organisation (`cre account access`).
-Until then `cre workflow simulate price-relay --target staging-settings` runs the reads and
-builds the report locally, but a simulated write goes through the mock forwarder, which this
-adapter correctly refuses.
+Deploying needs **deploy access**, which Chainlink grants per organisation. `cre whoami` shows
+`Deploy Access: Not enabled` until then. `cre account access` asks for confirmation and a short
+use-case description on a real terminal, so run it yourself; it cannot be answered from a
+non-interactive shell. Chainlink replies by email.
+
+Until then the simulation runs the real reads and builds the real report:
+
+```bash
+cre workflow simulate price-relay --target staging-settings --non-interactive --trigger-index 0
+```
+
+Checked 2026-09-13 with CLI v1.33.0: it compiles, reads ETH / USD 2,478.55 and BTC / USD 76,752.72
+from Sepolia at the last finalized block, and encodes both into one report. The write goes
+through the mock forwarder, which this adapter correctly refuses — so the zero transaction hash
+it prints is expected, and nothing lands on Arc.
 
 After the first deploy, authorise it on the adapter, and lock the adapter once it relays:
 

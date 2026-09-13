@@ -7,6 +7,7 @@ import { MainnetNotice } from '@/components/wallet/MainnetNotice';
 import { NetworkBanner } from '@/components/wallet/NetworkBanner';
 import { NetworkSync } from '@/components/wallet/NetworkSync';
 import { WalletProvider } from '@/components/wallet/WalletProvider';
+import { NETWORKS, isDeployed } from '@/lib/chain';
 import { dataSourceFor } from '@/lib/data';
 import { selectedNetwork } from '@/lib/network-server';
 import './globals.css';
@@ -83,6 +84,8 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const network = await selectedNetwork();
   const source = dataSourceFor(network);
+  // Before launch, the mainnet notice already explains the sample; saying it twice is clutter.
+  const mainnetPrelaunch = network === 'mainnet' && !isDeployed(NETWORKS.mainnet.addresses.vestedParimutuel);
 
   return (
     <html lang="en" className={`${archivo.variable} ${inter.variable} ${jetbrains.variable}`}>
@@ -97,7 +100,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <NetworkSync rendered={network} />
           <SiteHeader />
           <main id="main" className="mx-auto w-full max-w-[1180px] px-4 pb-24 pt-6 sm:px-6">
-            {source.kind === 'fixture' ? <FixtureNotice /> : null}
+            {source.kind === 'fixture' && !mainnetPrelaunch ? <FixtureNotice /> : null}
             <MainnetNotice />
             <NetworkBanner />
             {children}

@@ -2,6 +2,7 @@ import Link from 'next/link';
 
 import { MarketCard } from '@/components/market/MarketCard';
 import { Amount, Badge, Button, EmptyState, Stat } from '@/components/ui/primitives';
+import { NETWORKS, isDeployed } from '@/lib/chain';
 import { dataSourceFor } from '@/lib/data';
 import { selectedNetwork } from '@/lib/network-server';
 import type { MarketSummary } from '@/lib/data/types';
@@ -11,7 +12,16 @@ import type { MarketSummary } from '@/lib/data/types';
 // clock reading an absolute deadline.
 
 export default async function MarketsPage() {
-  const markets = await dataSourceFor(await selectedNetwork()).listMarkets();
+  const network = await selectedNetwork();
+  const markets = await dataSourceFor(network).listMarkets();
+  const deployed = isDeployed(NETWORKS[network].addresses.vestedParimutuel);
+  const liveBadge = !deployed
+    ? network === 'mainnet'
+      ? 'Launching on Arc mainnet'
+      : 'Arc Testnet, sample data'
+    : network === 'mainnet'
+      ? 'Live on Arc'
+      : 'Live on Arc Testnet';
   const open = markets.filter((market) => market.status === 'Open' && !market.frozen);
   const awaiting = markets.filter((market) => market.status === 'Open' && market.frozen);
   const settled = markets.filter((market) => market.status !== 'Open');
@@ -35,7 +45,7 @@ export default async function MarketsPage() {
         <div className="relative grid gap-8 px-5 py-8 sm:px-7 sm:py-10 md:grid-cols-[1.6fr_1fr] md:items-end">
           <div>
             <div className="mb-5 flex flex-wrap items-center gap-2">
-              <Badge tone="up">Live on Arc</Badge>
+              <Badge tone={deployed ? 'up' : 'note'}>{liveBadge}</Badge>
               <Badge tone="info">USDC native</Badge>
               <Badge tone="note">Agent readable</Badge>
             </div>

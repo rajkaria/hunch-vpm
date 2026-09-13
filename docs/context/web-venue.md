@@ -70,6 +70,11 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
   228 tests are green.
 - **`next dev` quirk:** after a toggle, `router.refresh()` can leave the market page's own segment stale while the layout updates. `next start` refreshes it correctly — browser-verified testnet → mainnet → testnet on the production build (contracts panel, footer, cookie, no console errors). Verify network switching on a build, not dev.
 - **Mainnet cannot add-to-wallet** until `NEXT_PUBLIC_ARC_RPC_URL`; explorer links suppressed until `NEXT_PUBLIC_ARC_EXPLORER_URL`.
+- **Mainnet pre-launch state (branch `claude/mainnet-prelaunch`):** while `ARC_MAINNET_ADDRESSES.vestedParimutuel` is
+  undeployed, the mainnet side shows a lime **"Coming to Arc mainnet"** notice instead of the unaudited warning and the
+  sample-data notice. It says the venue goes live when Arc mainnet launches and has a *Go to Arc Testnet* button. The
+  hero badge reads "Launching on Arc mainnet" (testnet: "Live on Arc Testnet"). `pnpm wire:mainnet` flips both
+  automatically. `formatDuration` is now exact (5400 s → "1h 30m"; production showed "2h").
 - `ARC_MAINNET_ADDRESSES` all placeholders. No per-market OG image; no rate limiting on the API routes.
 
 ## Recent changes — files touched and why

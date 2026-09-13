@@ -196,9 +196,11 @@ there is no ambiguity on that settler and no contract read is paid for.
 
 ## Addresses
 
-Every address in `subgraph.yaml` and `networks.json` is
-`0x0000000000000000000000000000000000000000`. **Nothing is deployed yet.** Replace all four,
-with the deployment block as `startBlock`, before deploying. Arc testnet is chain id
+`arc-testnet` carries the deployed addresses and their deploy blocks as `startBlock`, written by
+`pnpm wire:testnet` from `deployments/arc-testnet.json` — never by hand; `pnpm wire:check` fails
+the gate if they drift. `arc` (mainnet) is still the zero address, because nothing is deployed
+there. Deploy with `pnpm run deploy:testnet`, which goes through `tools/with-network.mjs` so the
+committed manifest is restored afterwards. Arc testnet is chain id
 `5042002`; the network slug The Graph uses is `arc-testnet` (mainnet is `arc`, chain id
 `5042`). USDC is the native gas token at `0x3600000000000000000000000000000000000000` and
 has 6 decimals through the ERC-20 interface, so every amount in this schema is in

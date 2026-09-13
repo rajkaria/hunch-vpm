@@ -11,6 +11,7 @@ import { Amount, Badge, Button, EmptyState, Panel, PanelHeader, Stat } from '@/c
 import { isDeployed } from '@/lib/chain';
 import type { ClaimReason, ClaimableItem, ClaimableView } from '@/lib/data/types';
 import { settlerAbi } from '@/lib/wallet/abi';
+import { useNetwork } from '@/lib/wallet/network';
 import { truncateAddress, useWallet } from '@/lib/wallet/useWallet';
 
 const REASONS: { key: ClaimReason; label: string; hint: string }[] = [
@@ -45,12 +46,14 @@ const REASONS: { key: ClaimReason; label: string; hint: string }[] = [
  */
 export function ClaimList() {
   const wallet = useWallet();
+  const { network, hydrated } = useNetwork();
 
   const claims = useQuery({
-    queryKey: ['claimable', wallet.address],
-    enabled: wallet.address !== null,
+    // Keyed by network: the same address holds different things on each Arc.
+    queryKey: ['claimable', network, wallet.address],
+    enabled: wallet.address !== null && hydrated,
     queryFn: async (): Promise<ClaimableView> => {
-      const response = await fetch(`/api/claimable?address=${wallet.address ?? ''}`);
+      const response = await fetch(`/api/claimable?network=${network}&address=${wallet.address ?? ''}`);
       if (!response.ok) throw new Error('The index could not be reached.');
       return decode(await response.json());
     },
@@ -65,7 +68,7 @@ export function ClaimList() {
     );
   }
 
-  if (claims.isLoading) {
+  if (claims.isPending) {
     return (
       <EmptyState title="Looking up what you are owed…">
         Reading positions for {truncateAddress(wallet.address)}.

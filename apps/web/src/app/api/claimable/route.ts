@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-import { dataSource } from '@/lib/data';
+import { dataSourceFor } from '@/lib/data';
+import { requestNetwork } from '@/lib/data/request-network';
 import type { ClaimableView } from '@/lib/data/types';
 
 /*
@@ -12,6 +13,9 @@ import type { ClaimableView } from '@/lib/data/types';
  * a path segment; fetching from client code would either publish that key or
  * force the surface onto a keyless endpoint forever. So the browser sends an
  * address and the server does the lookup.
+ *
+ * `network` picks the Arc (default: the deployment's), because each reads its
+ * own index and a wallet's claims on one are nothing on the other.
  *
  * bigint does not survive JSON, so every amount crosses as a decimal string and
  * the client parses it straight back. Losing precision on a claimable balance
@@ -29,9 +33,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'A 20-byte hex address is required.' }, { status: 400 });
   }
 
+  const network = requestNetwork(request);
+  if (network === null) {
+    return NextResponse.json({ error: 'network must be testnet or mainnet.' }, { status: 400 });
+  }
+
   try {
-    const view = await dataSource.getClaimable(address);
-    return NextResponse.json(encode(view), {
+    const view = await dataSourceFor(network).getClaimable(address);
+    return NextResponse.json({ ...encode(view), network }, {
       // Per-address and short-lived. Never shared: two visitors must not see
       // each other's positions out of a cache.
       headers: { 'cache-control': 'private, max-age=5' },

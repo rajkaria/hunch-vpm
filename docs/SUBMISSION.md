@@ -107,13 +107,13 @@ except the odds; here it has to reason about headroom and about what has already
 
 | Sponsor technology | How it is used | State |
 |---|---|---|
-| **Arc** | The settlement chain. Chain id `5042002` testnet / `5042` mainnet, with USDC as the **native gas token** — the stake asset and the gas asset are the same thing | Contracts written, built, tested; **not yet deployed** |
+| **Arc** | The settlement chain. Chain id `5042002` testnet / `5042` mainnet, with USDC as the **native gas token** — the stake asset and the gas asset are the same thing | **Deployed to Arc testnet and verified** on Arcscan; two markets open; mainnet not deployed |
 | **Circle** | USDC is the settlement asset throughout. The demo agent custodies through a **Circle Agent Wallet**; the entity secret is supplied already-encrypted so the raw secret never enters the process | Wired and tested in dry-run; not run live |
-| **The Graph** | Two subgraphs and a Substreams package. The venue subgraph computes derived decision quantities in the mapping | `erc8004-arc` is deployable today; `hunch-vpm` waits on contract addresses |
-| **ERC-8004** | Agent identity, reputation and validation, read from Arc's three live registries through the standardized schema | Registries are live on Arc testnet; subgraph not yet deployed |
+| **The Graph** | Two subgraphs and a Substreams package. The venue subgraph computes derived decision quantities in the mapping | Both live in Subgraph Studio on `arc-testnet` and published: `hunch-vpm-arc-testnet` (indexing both open markets) and `erc-8004-arc-testnet` |
+| **ERC-8004** | Agent identity, reputation and validation, read from Arc's three live registries through the standardized schema | Registries live on Arc testnet; `erc-8004-arc-testnet` subgraph deployed |
 | **World / AgentKit** | Human-backed agent verification against canonical AgentBook, used for **tiering** rather than exclusion | Verifier written and tested against fixtures; the canonical AgentBook address is a placeholder and the viem verifier refuses to start on it |
-| **Stork** | The shipped `IPriceOracle` adapter. The only provider with a published Arc testnet address today | Adapter written and tested |
-| **Chainlink** | A second adapter behind the same interface; needs only an address | Written and tested |
+| **Chainlink** | **The markets resolve from Chainlink Data Feeds.** Arc testnet has no Data Feeds, so a **CRE workflow** (`cre/price-relay`) reads ETH / USD and BTC / USD on Sepolia, and Chainlink's `KeystoneForwarder` on Arc delivers the DON-signed report to `ChainlinkCreOracle`. The adapter accepts only the production forwarder and a named workflow, and can lock its configuration. On Arc mainnet, `ChainlinkFeedOracle` reads the published feeds directly | Adapter deployed and verified (`0x68A7…c621`); both testnet markets resolve through it; workflow built and tested, **awaiting CRE deploy access** |
+| **Stork** | The first adapter, and the one the original deploy shipped | Written and tested. Stork's Arc testnet feeds stopped updating on 2026-06-14, so no market uses it |
 | **x402 / Gateway Nanopayments** | The agent pays per research quote rather than per subscription | Wired and tested in dry-run |
 
 > **Fill in before submitting:** the exact ETHOnline prize-track names this is entered under.
@@ -156,27 +156,39 @@ are separate states throughout, since arriving connected-but-elsewhere is the li
 
 **<https://hunch-vpm.vercel.app>** — the market surface, in production, public.
 
-It serves a **replayed fixture dataset**, and it says so in a banner on every page, because no
-contract is deployed. The transactional surface is complete and gated on deployment: every
-control that would send a transaction says the settler is not deployed yet rather than
-pretending otherwise. Every book on it is replayed through the settler's own rules, so the
+The settlement layer is **deployed to Arc testnet** and every contract is verified on Arcscan —
+VestedParimutuel `0xC743…2Eec`, ClassicParimutuel `0x2160…0D57`, FeedResolver `0xd9Fd…e3f3`,
+MarketFactory `0x0380…2f07`, and ChainlinkCreOracle `0x68A7…c621`
+(`deployments/arc-testnet.json`).
+
+**Arc testnet is live end to end.** Two markets are open, both seeded through MarketFactory and
+both resolving from Chainlink:
+
+- BTC / USD at or above $77,000 at 2026-09-15 16:00 UTC
+- ETH / USD at or above $2,500 at 2026-09-20 16:00 UTC
+
+The `hunch-vpm-arc-testnet` subgraph indexes them, and the board reads that subgraph. A
+scheduled keeper (`.github/workflows/keeper.yml`) settles each market once it freezes. Arc
+**mainnet** still serves a **replayed fixture dataset** and says so in a banner. A header toggle
+switches networks, and each one reads its own index. Fixture
+markets carry no on-chain settler, so every control that would send a transaction from one says
+there is nothing to send rather than pretending otherwise. Every book on it is replayed through the settler's own rules, so the
 arithmetic is real even though the markets are not. Addresses that are not real render as
 `0x0000…0000` with a **not deployed** badge rather than linking into an explorer that has
 nothing to show.
 
-Three addresses on the surface are live Arc testnet contracts and do link: USDC
-(`0x3600…0000`), the Stork oracle (`0xacC0…fd62`), and the ERC-8004 registries on `/agents`.
+On the mainnet fixtures, the addresses that do link are the ones live on either network: USDC
+(`0x3600…0000`) and the ERC-8004 registries on `/agents`.
 
 ## What is not done, stated plainly
 
 A submission that hides this is worse than one that says it.
 
-1. **Nothing of ours is deployed on-chain.** Every contract address in committed configuration
-   is the zero address, deliberately. `deployments/` has no address file, and a network with
-   no file has not been deployed to — absence means "not deployed", never "look somewhere
-   else".
-2. **Neither subgraph is deployed.** `erc8004-arc` could be deployed today — Arc's registries
-   are live and their addresses are committed. `hunch-vpm` waits on step 1.
+1. **Nothing is deployed to Arc mainnet.** Testnet is deployed and verified; mainnet has no
+   `deployments/` file and every mainnet address is the zero placeholder. Mainnet's RPC,
+   explorer and a verified oracle are not published yet.
+2. **Neither subgraph is published to Studio.** Both build against Arc testnet with the real
+   addresses and start blocks wired in; publishing waits only on a Studio deploy key.
 3. **Substreams cannot stream.** It builds, tests and packs, but there is **no public Firehose
    endpoint for Arc yet**. This is an external dependency, not an omission — `make run` has
    nothing to connect to until it is resolved.
@@ -184,11 +196,9 @@ A submission that hides this is worse than one that says it.
    today. The full research → decide → enter → monitor → claim loop is exercised against
    fixtures. The keeper is the same: dry run unless `--live`, and `--live` without a key is
    refused rather than silently downgraded.
-5. **Positions are not read per address from the live index.** The portfolio works on
-   fixtures. `@hunch-vpm/client` has no positions-by-owner read, and writing that query
-   against a subgraph nobody has deployed would be untested speculation in the data path. The
-   subgraph already indexes `Position` with an owner, so the fix is a client read and one
-   call — not a schema change.
+5. **The live read path is untested against a real index.** The client's `positions(wallet)`
+   read and the web's live source are covered against recorded responses and checked against
+   the subgraph schema, but no index has been queried yet, because none is published.
 6. **Selfie Check is not implemented.** The AgentKit verifier is wired and tested against
    fixtures; the canonical AgentBook address is a placeholder, and the viem-backed verifier
    refuses to start when handed it rather than pretending.

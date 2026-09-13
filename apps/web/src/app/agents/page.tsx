@@ -2,11 +2,10 @@ import type { Metadata } from 'next';
 
 import { AddressLink } from '@/components/market/AddressLink';
 import { Amount, Badge, EmptyState, Panel, PanelHeader, Percent } from '@/components/ui/primitives';
-import { ARC_TESTNET_ADDRESSES } from '@/lib/chain';
-import { dataSource } from '@/lib/data';
+import { NETWORKS } from '@/lib/chain';
+import { dataSourceFor } from '@/lib/data';
+import { selectedNetwork } from '@/lib/network-server';
 import type { AgentRow } from '@/lib/data/types';
-
-export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: 'Agents',
@@ -15,7 +14,9 @@ export const metadata: Metadata = {
 };
 
 export default async function AgentsPage() {
-  const agents = await dataSource.listAgents();
+  const network = await selectedNetwork();
+  const { facts, addresses } = NETWORKS[network];
+  const agents = await dataSourceFor(network).listAgents();
   const rated = agents.filter((agent) => agent.meanScore !== null).length;
   const backed = agents.filter((agent) => agent.humanBacked).length;
 
@@ -97,26 +98,26 @@ export default async function AgentsPage() {
         <PanelHeader title="Where the reputation comes from" />
         <div className="space-y-3 px-4 py-5 text-sm leading-relaxed text-muted sm:px-5">
           <p>
-            Identities and feedback live in the ERC-8004 registries on Arc testnet, not in this venue. Nothing
+            Identities and feedback live in the ERC-8004 registries on {facts.name}, not in this venue. Nothing
             here can raise or lower a score; the surface reads them and says what it read.
           </p>
           <dl className="grid gap-3 sm:grid-cols-3">
             <div>
               <dt className="text-xs uppercase tracking-[0.12em] text-faint">IdentityRegistry</dt>
               <dd className="mt-1">
-                <AddressLink address={ARC_TESTNET_ADDRESSES.identityRegistry} />
+                <AddressLink address={addresses.identityRegistry} chain={facts} />
               </dd>
             </div>
             <div>
               <dt className="text-xs uppercase tracking-[0.12em] text-faint">ReputationRegistry</dt>
               <dd className="mt-1">
-                <AddressLink address={ARC_TESTNET_ADDRESSES.reputationRegistry} />
+                <AddressLink address={addresses.reputationRegistry} chain={facts} />
               </dd>
             </div>
             <div>
               <dt className="text-xs uppercase tracking-[0.12em] text-faint">ValidationRegistry</dt>
               <dd className="mt-1">
-                <AddressLink address={ARC_TESTNET_ADDRESSES.validationRegistry} />
+                <AddressLink address={addresses.validationRegistry} chain={facts} />
               </dd>
             </div>
           </dl>

@@ -4,7 +4,8 @@ A demo agent for the Vested Parimutuel. It reads the book through The Graph, dec
 to do with it, and settles in USDC on Arc through a Circle Agent Wallet, paying for its
 research with Gateway Nanopayments.
 
-**That is what live mode does. Nothing is deployed, so nothing has run live.** Everything
+**That is what live mode does. The settlers are deployed to Arc testnet
+(`deployments/arc-testnet.json`), but the agent has not run live yet.** Everything
 described below has been exercised in dry-run — no key, no network, no contracts — which is
 the default and the only mode that works today.
 
@@ -280,10 +281,15 @@ Nothing below is required in dry-run.
 | `HUNCH_DEMO_TICK_S` | simulated seconds per round in dry-run (default 2700) |
 
 USDC is the stake asset *and* the gas token on Arc, at
-`0x3600000000000000000000000000000000000000`, 6 decimals through the ERC-20 interface. No
-contracts are deployed yet, so the settler defaults to
-`0x0000000000000000000000000000000000000000` and live mode refuses to start until
-`HUNCH_SETTLER` names a real one.
+`0x3600000000000000000000000000000000000000`, 6 decimals through the ERC-20 interface. The
+settler still defaults to the zero address, and live mode refuses to start until
+`HUNCH_SETTLER` names a real one. On Arc testnet, from `deployments/arc-testnet.json`:
+
+```sh
+HUNCH_SETTLER=0xC743940C75619f65F6178b7e49c0C3A0bE012Eec
+HUNCH_MARKET_IDS=0xc743940c75619f65f6178b7e49c0c3a0be012eec-0,0xc743940c75619f65f6178b7e49c0c3a0be012eec-1
+HUNCH_SUBGRAPH_URL=https://api.studio.thegraph.com/query/1760242/hunch-vpm-arc-testnet/v0.0.1
+```
 
 ---
 

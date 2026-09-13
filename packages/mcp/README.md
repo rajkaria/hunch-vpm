@@ -53,8 +53,8 @@ protocol channel.
         // Required: the server will not start without a venue subgraph to read.
         "HUNCH_VPM_SUBGRAPH_URL": "https://api.studio.thegraph.com/query/<id>/hunch-vpm/<version>",
         "HUNCH_VPM_ERC8004_SUBGRAPH_URL": "https://api.studio.thegraph.com/query/<id>/erc8004-arc/<version>",
-        // Placeholder: nothing is deployed yet, and the server says so on startup.
-        "HUNCH_VPM_SETTLER_ADDRESS": "0x0000000000000000000000000000000000000000"
+        // The Arc testnet settler, from deployments/arc-testnet.json.
+        "HUNCH_VPM_SETTLER_ADDRESS": "0xC743940C75619f65F6178b7e49c0C3A0bE012Eec"
       }
     }
   }
@@ -77,7 +77,7 @@ restart fixes all of them.
 | `HUNCH_VPM_CHAIN_ID` | `5042002` | 5042002 = Arc testnet, 5042 = Arc mainnet. Selects the built-in RPC, explorer and registry addresses. |
 | `HUNCH_VPM_RPC_URL` | testnet: `https://rpc.testnet.arc.network` | Overrides the preset. Required on chains with no preset. |
 | `HUNCH_VPM_EXPLORER_URL` | testnet: `https://testnet.arcscan.app` | Used to build links in responses. |
-| `HUNCH_VPM_SETTLER_ADDRESS` | `0x0000…0000` | `VestedParimutuel`. The zero address is a placeholder: no contracts are deployed yet, and the server says so on startup. |
+| `HUNCH_VPM_SETTLER_ADDRESS` | `0x0000…0000` | `VestedParimutuel`. On Arc testnet set it to `0xC743940C75619f65F6178b7e49c0C3A0bE012Eec` (`deployments/arc-testnet.json`). Left at the zero address, the server treats the venue as undeployed and says so on startup. |
 | `HUNCH_VPM_CLASSIC_SETTLER_ADDRESS` | unset | `ClassicParimutuel`, when the side-by-side comparison is deployed. A market on this settler is flagged in the response, since nothing is refused there. |
 | `HUNCH_VPM_ERC8004_SUBGRAPH_URL` | unset | The ERC-8004 subgraph on Arc. Source of identity and reputation. |
 | `HUNCH_VPM_ERC8004_SUBGRAPH_ID` | unset | The same, as a Studio id plus `HUNCH_VPM_GRAPH_API_KEY`. |

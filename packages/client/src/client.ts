@@ -9,6 +9,7 @@ import { claimable } from './reads/claimable.js';
 import { impliedOdds } from './reads/impliedOdds.js';
 import type { MarketBookOptions } from './reads/marketBook.js';
 import { marketBook } from './reads/marketBook.js';
+import { ownerPositions } from './reads/positions.js';
 import { vestingEarned } from './reads/vestingEarned.js';
 import type {
   BestHeadroom,
@@ -17,6 +18,7 @@ import type {
   ImpliedOdds,
   MarketBook,
   VestingEarned,
+  WalletPositions,
 } from './types.js';
 import type {
   ApproveParams,
@@ -56,6 +58,12 @@ export interface HunchClient {
   vestingEarned(positionId: string): Promise<VestingEarned>;
   /** Everything a wallet can pull right now, across markets, with totals. */
   claimable(wallet: Address): Promise<Claimable>;
+  /**
+   * Every position a wallet holds or has held, across markets, newest first —
+   * open, unfinalized, settled and claimed alike. `claimable` is the narrower
+   * question of what can be pulled right now.
+   */
+  positions(wallet: Address): Promise<WalletPositions>;
   /** The full book: principal, vested, capacity, headroom, odds, freeze, resolution spec. */
   marketBook(marketId: string, options?: MarketBookOptions): Promise<MarketBook>;
 
@@ -80,6 +88,7 @@ export function createHunchClient(config: HunchClientConfig = {}): HunchClient {
     counterpartyTrust: (marketId, options) => counterpartyTrust(resolved, marketId, options),
     vestingEarned: (positionId) => vestingEarned(resolved, positionId),
     claimable: (wallet) => claimable(resolved, wallet),
+    positions: (wallet) => ownerPositions(resolved, wallet),
     marketBook: (marketId, options) => marketBook(resolved, marketId, options),
 
     enterCalldata: (params) => enterCalldata(context, params),

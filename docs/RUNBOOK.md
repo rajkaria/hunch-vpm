@@ -4,10 +4,19 @@ How to run this repo locally, put it on Arc testnet, index it, serve it, open a 
 resolve one, and handle the feed going quiet. Every command here exists in the repo or in a
 tool the repo already depends on.
 
-**Deployed today:** the web surface only, at <https://hunch-vpm.vercel.app>, serving the
-fixture dataset. Nothing on-chain and neither subgraph is deployed: every contract address in
-committed configuration is `0x0000000000000000000000000000000000000000`, on purpose, and every
-step below that needs a real address says which file to put it in.
+**Deployed today:** the web surface at <https://hunch-vpm.vercel.app>, and the settlement layer on
+**Arc testnet** (2026-09-13, `deployments/arc-testnet.json`, all five verified on Arcscan):
+
+| Contract | Address |
+|---|---|
+| VestedParimutuel | [`0xC743940C75619f65F6178b7e49c0C3A0bE012Eec`](https://testnet.arcscan.app/address/0xC743940C75619f65F6178b7e49c0C3A0bE012Eec) |
+| ClassicParimutuel | [`0x21603b2176aB8495A81fF3B3bE853C64f3860D57`](https://testnet.arcscan.app/address/0x21603b2176aB8495A81fF3B3bE853C64f3860D57) |
+| StorkOracle (IPriceOracle adapter) | [`0x5938F12246642aE8E6A47Efbaa72a454EafD4287`](https://testnet.arcscan.app/address/0x5938F12246642aE8E6A47Efbaa72a454EafD4287) |
+| FeedResolver | [`0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3`](https://testnet.arcscan.app/address/0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3) |
+| MarketFactory | [`0x0380C6FC136AE64432558e407706a5C7E7652f07`](https://testnet.arcscan.app/address/0x0380C6FC136AE64432558e407706a5C7E7652f07) |
+
+**Not deployed:** anything on Arc mainnet (every mainnet address is the zero placeholder), and
+neither subgraph is published to Studio yet — so the surface still serves the fixture dataset.
 
 - [What you need installed](#what-you-need-installed)
 - [Local development from a clean clone](#local-development-from-a-clean-clone)
@@ -16,9 +25,11 @@ step below that needs a real address says which file to put it in.
 - [Deploying the subgraphs](#deploying-the-subgraphs)
 - [Deploying the web surface](#deploying-the-web-surface)
 - [Opening a market](#opening-a-market)
+- [Chainlink prices on Arc testnet (CRE)](#chainlink-prices-on-arc-testnet-cre)
 - [Resolving a market](#resolving-a-market)
 - [The keeper](#the-keeper)
 - [When the feed goes stale](#when-the-feed-goes-stale)
+- [Arc mainnet](#arc-mainnet)
 - [Substreams](#substreams)
 - [Secrets](#secrets)
 
@@ -106,7 +117,7 @@ forge test --root contracts -vv
 ```
 
 The web surface and the agent both default to a mode that needs nothing deployed: the surface
-serves a replayed fixture dataset whenever `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` is unset, and the
+serves a replayed fixture dataset for any network with no subgraph URL set, and the
 agent's dry-run mode is its default and holds no key.
 
 ## Deploying the contracts to Arc testnet
@@ -117,14 +128,26 @@ deployer needs testnet USDC for gas.
 
 ### Check before you spend anything
 
+A fresh `git worktree`, or a clone without `--recurse-submodules`, has an **empty
+`contracts/lib/forge-std`**, and `Deploy.s.sol` imports from it. The first real deploy attempt
+failed there at compile time. Initialise it first:
+
 ```sh
+git submodule update --init --recursive
+ETH_PASSWORD=~/.foundry/<keystore-account>.password \
+ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io \
 bash scripts/preflight-deploy.sh <keystore-account> testnet
 ```
 
+`ETH_PASSWORD` is Foundry's own variable for a keystore **password file** (a path, not the
+password). With it set, the preflight can read the deployer's address and balance, and the
+command it prints carries `--password-file`, so the deploy runs without a prompt. Keep that file
+outside the repository, mode 600.
+
 Read-only, and it refuses rather than warns. It checks the things that cost real
-money to get wrong: that the keystore account exists, that the RPC actually
+money to get wrong: that the contracts compile, that the keystore account exists, that the RPC actually
 answers **and is chain 5042002 and not something else**, that the deployer holds
-USDC (the gas token — read at 18 decimals, because `cast balance` is the native
+at least 0.35 USDC (the gas token — read at 18 decimals, because `cast balance` is the native
 view, while the ERC-20 view stakes move through is 6; the easiest pair of
 numbers on this chain to misread), that `ORACLE_KIND` is not a typo silently falling through to Stork,
 and that Stork's contract is really deployed at the address the script would
@@ -182,11 +205,28 @@ provider ships is configuration rather than a code change.
 | `chainlink` | `ChainlinkFeedOracle` | Needs no address at deploy time — the feed is the per-market `feedKey` |
 | `mock` | `MockOracle` | Local chains only. A settable price with a settable timestamp |
 
+**Stork on Arc testnet has stopped publishing.** Its last update landed on 2026-06-14 (block
+47,013,326). The adapter reads through `getTemporalNumericValueV1`, which reverts `StaleValue()`
+once a value is over an hour old, so a Stork-backed market can never resolve today. Pushing an
+update yourself needs Stork-signed data, and that needs a Stork API key. Pyth's Arc testnet
+contract has the same problem: Hermes has required an API key since the Pyth Core upgrade on
+2026-08-26, and Arc testnet was left out of that upgrade. **Arc testnet markets resolve through
+Chainlink instead**, relayed by CRE. See [Chainlink prices on Arc testnet](#chainlink-prices-on-arc-testnet-cre).
+On Arc mainnet, Chainlink publishes Data Feeds directly, so `ORACLE_KIND=chainlink` is the one to ship.
+
 The unrecognised-value case falling through to Stork is deliberate but silent: a typo in
 `ORACLE_KIND` deploys Stork without complaint. Read the adapter address the script prints
 against the one you expected before you go further.
 
 `contracts/test/Deploy.t.sol` covers all three branches.
+
+The printed command starts with `set -o pipefail`. Without it `forge script … | tee deploy.log`
+exits 0 even when forge fails, and a failed deploy reads as a finished one — which is exactly how
+the compile failure above first presented.
+
+Blockscout rate-limits verification. If `--verify` gives up with `Too many requests` on some
+contracts (it did on FeedResolver and MarketFactory), the contracts are deployed and only
+verification is outstanding — see "If verification did not run or failed" below.
 
 ### Recording the addresses
 
@@ -233,7 +273,20 @@ Then commit it. One file per network, and a network with no file has not been de
 absence means "not deployed", never "look somewhere else". `deployments/README.md` holds the
 same table.
 
-If verification did not run or failed, verify after the fact per contract:
+If verification did not run or failed, verify after the fact per contract. When Arcscan is
+rate-limiting `forge verify-contract` (its ABI lookups count against the limit too), submit the
+standard JSON input to Blockscout's v2 endpoint instead — that is how FeedResolver and
+MarketFactory were verified:
+
+```sh
+forge verify-contract --root contracts --chain 5042002 --show-standard-json-input \
+  <address> src/MarketFactory.sol:MarketFactory > MarketFactory.json
+# POST it as multipart to https://testnet.arcscan.app/api/v2/smart-contracts/<address>/verification/via/standard-input
+# with compiler_version=v0.8.28+commit.7893614a, contract_name, license_type=mit, files[0]=@MarketFactory.json,
+# and constructor_args (hex, no 0x) for a contract that has them.
+```
+
+Or with forge, when the explorer is not throttling:
 
 ```sh
 forge verify-contract --root contracts --chain 5042002 --watch \
@@ -243,17 +296,27 @@ forge verify-contract --root contracts --chain 5042002 --watch \
 
 ## Wiring the addresses through
 
-Six places read the deployed addresses, and they are not wired to each other. After a deploy,
-update all of them from `deployments/arc-testnet.json`.
+Six places read the deployed addresses, and none imports another. **Do not hand-edit them.**
+
+```sh
+ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io pnpm wire:testnet
+```
+
+`scripts/wire-deployment.mjs` writes the four committed readers from
+`deployments/arc-testnet.json`, takes each contract's deploy block from forge's broadcast receipts
+and records it in the file as `startBlocks`, confirms every address holds code when the RPC
+variable is set, and prints the two environment lines it cannot write. `pnpm wire:check` — a
+stage of `pnpm verify` — fails if any reader drifts from its file, or holds a non-zero address
+for a network that has no file.
 
 | Where | What to change |
 |---|---|
 | `deployments/arc-testnet.json` | the file itself, from the script's output |
-| `subgraph/networks.json` | `arc-testnet`: all four addresses and each one's deployment block as `startBlock`. Do **not** hand-edit `subgraph.yaml` — `graph build --network` rewrites it from here |
+| `subgraph/networks.json` and `subgraph/subgraph.yaml` | `arc-testnet`: all four addresses and each one's deployment block as `startBlock`. The committed manifest is the arc-testnet one, so the script writes both |
 | `packages/client/src/addresses.ts` | `arcTestnetAddresses`. Callers can also override per client with `defineConfig({ addresses: { … } })` without touching the file |
-| `apps/web/src/lib/chain.ts` | `ARC_TESTNET_ADDRESSES`. Deliberately duplicated from the client rather than imported, because the app has to typecheck before the client has been built |
-| `packages/mcp` environment | `HUNCH_VPM_SETTLER_ADDRESS`, and `HUNCH_VPM_CLASSIC_SETTLER_ADDRESS` once the comparison settler is up |
-| `agent` environment | `HUNCH_SETTLER` — live mode refuses to start while it is the zero address |
+| `apps/web/src/lib/chain.ts` | `ARC_TESTNET_ADDRESSES`, including `priceOracle` (the adapter a spec names). Deliberately duplicated from the client rather than imported, because the app has to typecheck before the client has been built |
+| `packages/mcp` environment | `HUNCH_VPM_SETTLER_ADDRESS`, `HUNCH_VPM_CLASSIC_SETTLER_ADDRESS`. Arc testnet values are filled in `packages/mcp/.env.example`: `0xC743…2Eec` and `0x2160…0D57` |
+| `agent` environment | `HUNCH_SETTLER=0xC743940C75619f65F6178b7e49c0C3A0bE012Eec`, `HUNCH_MARKET_IDS` from `deployments/arc-testnet.json`. Live mode refuses to start while `HUNCH_SETTLER` is the zero address |
 
 The Substreams package takes them as module parameters rather than committed configuration;
 see [Substreams](#substreams).
@@ -262,8 +325,9 @@ see [Substreams](#substreams).
 
 ### `hunch-vpm` — the venue
 
-1. Create the subgraph at <https://thegraph.com/studio>, choosing **Arc Testnet** as the
-   network. Studio issues a deploy key and a slug.
+1. Create the subgraph at <https://thegraph.com/studio>, named **`hunch-vpm-arc-testnet`**,
+   choosing **Arc Testnet** as the network. Studio issues a deploy key; one key covers every
+   subgraph on the account.
 
 2. Authenticate once per machine. The key goes into graph-cli's own config, outside this
    repo — never into a file here:
@@ -272,20 +336,19 @@ see [Substreams](#substreams).
    npx graph auth <DEPLOY_KEY>
    ```
 
-3. Put the deployed addresses and their deployment blocks into `subgraph/networks.json` under
-   `arc-testnet`, as above.
+3. The addresses and start blocks are already in `subgraph/networks.json` and `subgraph.yaml` —
+   `pnpm wire:testnet` put them there.
 
-4. Build against the network and deploy, from `subgraph/`:
+4. Deploy, from `subgraph/`:
 
    ```sh
-   pnpm codegen
-   npx graph build --network arc-testnet
-   npx graph deploy <SUBGRAPH_SLUG> --network arc-testnet
+   pnpm run deploy:testnet --version-label v0.0.1
    ```
 
-   The CLI prompts for a version label. The package also carries
-   `pnpm deploy:studio`, which is the same `graph deploy` with the slug `hunch-vpm` and
-   `--network arc-testnet` already filled in.
+   That is `graph codegen`, then `graph deploy hunch-vpm-arc-testnet --network arc-testnet`
+   through `tools/with-network.mjs`, which swaps the network in and restores `subgraph.yaml`
+   afterwards (graph-cli rewrites the manifest in place and drops its comments). Without
+   `--version-label` the CLI prompts for one.
 
    Studio then shows sync progress and a development query URL:
    `https://api.studio.thegraph.com/query/<studio-id>/<slug>/<version>`.
@@ -310,10 +373,13 @@ ours to deploy, and their addresses and start blocks are already in
 `subgraph-erc8004-arc/networks.json`.
 
 ```sh
-pnpm --filter @hunch-vpm/subgraph-erc8004-arc deploy:arc-testnet
+pnpm --filter @hunch-vpm/subgraph-erc8004-arc run deploy:arc-testnet --version-label v0.0.1
 ```
 
-That runs `tools/with-network.mjs arc-testnet deploy erc8004-arc-testnet --node
+Its Studio subgraph must be named **`erc-8004-arc-testnet`** (Arc Testnet). The build against
+arc-testnet was checked on 2026-09-13 and succeeds; only the Studio deploy key is missing.
+
+That runs `tools/with-network.mjs arc-testnet deploy erc-8004-arc-testnet --node
 https://api.studio.thegraph.com/deploy/`. The mainnet target is `deploy:arc`, and its
 addresses in `networks.json` are still zero — fill them in before using it.
 
@@ -348,13 +414,19 @@ and production is <https://hunch-vpm.vercel.app>. A push to `main` redeploys it 
 at the repository root carries the whole build configuration (`git.deploymentEnabled.main`),
 so the settings below are already in effect and are recorded here for a rebuild from scratch.
 
-With no `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` set — which is the current state — it serves the
-fixture dataset. Point it at a live subgraph by setting that variable, and nothing else has
-to change.
+Each network reads its own subgraph. With no subgraph URL for a network, that network serves the
+fixture dataset and says so. **Arc testnet is live:** its two subgraph URLs and
+`NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` are set in Vercel for production, preview and development.
+Mainnet has none of them yet, so it serves fixtures.
 
 The repository is a pnpm workspace, and `vercel.json` builds it from the root with a filter
 (`pnpm --filter @hunch-vpm/web build`) rather than setting a Root Directory, because the app
-extends `../../tsconfig.base.json`. If you configure a project by hand in the dashboard
+extends `../../tsconfig.base.json`. **The web app's `build` script builds `@hunch-vpm/client`
+first**, and `live.ts` imports the client by a literal specifier, so it is compiled into the
+server bundle. Both halves were needed. When the import went through a variable, the bundler
+never saw the client. Vercel then failed at build time (`Cannot find module
+…/@hunch-vpm/client/dist/index.js`), and once that was patched, at runtime: the function's file
+trace did not contain the client, so every live read answered "The index could not be reached." If you configure a project by hand in the dashboard
 instead, point it at the app directory:
 
 | Setting | Value |
@@ -370,15 +442,15 @@ extends `../../tsconfig.base.json`.
 
 ### Environment
 
-None of it is required. With no `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` the deployment serves the
-fixture dataset and every page renders, which is the right default while nothing is deployed.
-`apps/web/src/lib/data/index.ts` is the only file that chooses.
+None of it is required. A network with no subgraph URL serves the fixture dataset and every page
+renders. `apps/web/src/lib/data/index.ts` is the only file that chooses; which network a request
+reads is the viewer's toggle, carried to the server in the `hunch-vpm.network` cookie.
 
 | Variable | Effect |
 |---|---|
-| `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` | Unset or empty: fixtures. Set: the live source |
-| `NEXT_PUBLIC_HUNCH_MARKET_IDS` | Comma-separated subgraph ids (`<settler>-<index>`) the board lists. This is also the complete set of `/m/<id>` routes, because the market page sets `dynamicParams = false` |
-| `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL` | Optional. Without it, reputation reads are unavailable and `/agents` says so rather than showing zeros |
+| `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET`, `_MAINNET` | Per network. Unset or empty: that network serves fixtures. Set: the live source. The unsuffixed `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` is still read as testnet; mainnet never falls back to it |
+| `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`, `_MAINNET` | Comma-separated subgraph ids (`<settler>-<index>`) each network's board lists. Together they are the complete set of `/m/<id>` routes, because the market page sets `dynamicParams = false`. Unsuffixed = testnet |
+| `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET`, `_MAINNET` | Optional. Without it, reputation reads on that network are unavailable and `/agents` says so rather than showing zeros. Unsuffixed = testnet |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Optional. Unset: browser wallets only, and the connect menu says so. It is public by design but it is yours, so there is no default |
 | `NEXT_PUBLIC_ARC_NETWORK` | `mainnet` to transact on Arc mainnet. Anything else, including unset, is testnet — so a misconfigured build cannot sign against mainnet |
 | `NEXT_PUBLIC_ARC_TESTNET_RPC_URL`, `NEXT_PUBLIC_ARC_RPC_URL` | Optional overrides for the public endpoints. A URL, not a secret — unless your provider embeds a key in it, in which case it does not belong in a `NEXT_PUBLIC_` variable at all |
@@ -387,7 +459,7 @@ fixture dataset and every page renders, which is the right default while nothing
 **The `NEXT_PUBLIC_` prefix means Next inlines the value wherever it is referenced from client
 code.** Today these are read only from a server module, but treat them as public: put the
 Studio development query URL here, or a proxy of your own. A gateway URL with a key in its path
-does not belong in any of these three.
+does not belong in any of the subgraph variables.
 
 ### Domain
 
@@ -469,6 +541,55 @@ for your own wallet — `approveCalldata({ spender: factory, amount })` then
 validates the shape before it encodes: at least two outcomes, every leg positive, `kappa >= 1`,
 a 32-byte `feedKey`, and every integer inside its field width. It holds no key and signs
 nothing.
+
+### The markets open on Arc testnet
+
+Both were opened on 2026-09-13 by the deployer through MarketFactory. Each is seeded with 2 USDC
+per side, `kappa` 30, a 3-day `voidTimeout` and `maxStaleness` 5400 s, and both resolve through
+`ChainlinkCreOracle`. Each one's full record is in `deployments/arc-testnet.json` (`markets`).
+
+| Subgraph id | Question | Freeze (UTC) | specId |
+|---|---|---|---|
+| `0xc743…2eec-0` | BTC / USD at or above $77,000 | 2026-09-15 16:00 | `0x49a5f58c…c0ff` |
+| `0xc743…2eec-1` | ETH / USD at or above $2,500 | 2026-09-20 16:00 | `0xa89bf6c8…70dc` |
+
+To open another one, follow the steps above, add its entry to `markets`, and append its id to
+`NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` in Vercel. The market page sets `dynamicParams = false`,
+so a redeploy is what makes its `/m/<id>` route exist.
+
+## Chainlink prices on Arc testnet (CRE)
+
+Chainlink publishes Data Feeds on Arc **mainnet** (the reference data directory lists ETH / USD at
+`0x50FCDD99D6762D1C170DC6A9111db944AEE6D364`) but not on Arc **testnet**. On testnet the
+Chainlink-native route is the Chainlink Runtime Environment. A workflow reads the feed where it
+lives (Ethereum Sepolia) and the DON signs a report. Chainlink's production `KeystoneForwarder`
+on Arc testnet (`0x76c9cf548b4179F8901cda1f8623568b58215E62`, `typeAndVersion` "KeystoneForwarder
+1.0.0") verifies the report and delivers it to `ChainlinkCreOracle`.
+
+| Piece | Where |
+|---|---|
+| `ChainlinkCreOracle` (IPriceOracle + IReceiver) | `contracts/src/oracles/ChainlinkCreOracle.sol`, deployed and verified at `0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621` by `script/DeployCreOracle.s.sol` |
+| The workflow, `hunch-price-relay` | `cre/price-relay/`. Every 5 minutes it relays ETH / USD and BTC / USD from Sepolia |
+| Feed keys | `keccak256` of the source feed's `description()`: `cast keccak "ETH / USD"` |
+
+The adapter takes reports **only** from the production forwarder, and only for a configured workflow
+owner and/or workflow id. Until one is configured it refuses everything. It records the
+**source** round's timestamp, so `maxStaleness` judges the feed's real age. The Sepolia feeds
+have a one-hour heartbeat, which is why the testnet markets allow 5400 s.
+
+**Order of operations**, all but the last two done:
+
+1. Deploy the adapter: `forge script script/DeployCreOracle.s.sol --rpc-url arc_testnet --broadcast --account <acct>`.
+2. Open markets whose spec names the adapter and `cast keccak "<PAIR>"` as the feed key.
+3. `cd cre/price-relay && bun install && bun test`.
+4. **Operator:** `cre login`, then `cre account access` to request deploy access. Once it is granted,
+   run `cre workflow deploy price-relay --target production-settings` from `cre/`.
+5. **Operator:** `setExpectedWorkflowId` / `setExpectedAuthor` on the adapter with the values
+   `cre` prints, then `lock()` it once the first `PriceRelayed` event lands.
+
+`cre/README.md` has the exact commands. If a market freezes before prices flow, nothing is lost:
+the keeper waits (it never voids by default). After `resolutionTime + voidTimeout` anyone may void
+the market through the settler, and every position refunds at accepted principal.
 
 ## Resolving a market
 
@@ -572,6 +693,24 @@ It exits non-zero only when a call was attempted and reverted, so cron's own
 mail-on-failure is a usable alert. A spec that is simply not ready is not a
 failure and does not page anyone.
 
+### Scheduled on GitHub Actions (what Arc testnet uses)
+
+`.github/workflows/keeper.yml` runs one pass every 10 minutes on `main`. It also has a
+**Run workflow** button. It takes the spec ids from `deployments/arc-testnet.json` (`markets[].specId`), so
+committing a new market's entry is what puts it under the keeper.
+
+- **No `KEEPER_PRIVATE_KEY` secret: dry run.** It reports what it would send and sends nothing.
+- **With the secret: live.** Create a fresh key that is not the deployer's, fund it with about
+  1 testnet USDC at <https://faucet.circle.com>, and store it as a repository secret:
+
+  ```sh
+  cast wallet new                       # note the address and private key
+  gh secret set KEEPER_PRIVATE_KEY      # paste the private key at the prompt
+  ```
+
+It never passes `--allow-void`. GitHub may run a schedule late, and that is harmless: the book
+froze at `resolutionTime`, whenever `resolve` actually lands.
+
 ## When the feed goes stale
 
 `resolve` reverts rather than voids when the reading is too old. That is deliberate: a keeper
@@ -624,6 +763,46 @@ ordinary gap voids a market that had a perfectly good answer. The market page sh
 the last reading and its timestamp, and flags a spec whose last reading is already older than
 its own bound.
 
+## Arc mainnet
+
+Public launch is **16 September 2026**, chain id **5042**. Nothing of ours is deployed there.
+The code is ready, and the steps are the testnet ones with three differences.
+
+**What is already true (checked 2026-09-13):**
+
+- **Chainlink Data Feeds exist on Arc mainnet.** The reference data directory
+  (`feeds-arc-mainnet.json`) lists 30, including ETH / USD `0x50FCDD99D6762D1C170DC6A9111db944AEE6D364`
+  and BTC / USD `0xa109B535C70C8Be9995be64Bb6751AcDB27e03De`. Both are 8 decimals with a 24 h
+  heartbeat and a 0.5 % deviation trigger. So mainnet ships `ORACLE_KIND=chainlink`:
+  `ChainlinkFeedOracle` reads the aggregator directly, with the feed address as the `feedKey`. No
+  CRE relay and no API key.
+- **A 24 h heartbeat changes `maxStaleness`.** A quiet market can sit a day between rounds, so a
+  tight bound voids markets that had a good answer. Use at least 90000 s on mainnet, or pick a pair
+  whose deviation trigger fires often.
+- The Graph supports `arc` (`subgraph/package.json` has `deploy:mainnet`). graph-cli 0.98.1
+  builds it.
+
+**What must be published before anything is sent**, and is not yet:
+
+- Arc's official mainnet **RPC**. Chainlink's docs name `explorer.arc.io` as the explorer. Confirm
+  both on docs.arc.io at launch, and do not use third-party endpoints.
+- The **ERC-8004 registries**' mainnet addresses, for the reputation subgraph and `/agents`.
+
+**Order of operations:**
+
+1. Fund a mainnet deployer keystore with real USDC: about 0.35 for gas, plus the seeds.
+2. `ARC_MAINNET_RPC_URL=… ARC_VERIFIER_URL=<blockscout api> ORACLE_KIND=chainlink bash scripts/preflight-deploy.sh <acct> mainnet`,
+   then the command it prints.
+3. Cut `deployments/arc-mainnet.json`, then run `pnpm wire:mainnet` and `pnpm verify`.
+4. Create the `hunch-vpm-arc` Studio subgraph (network `arc`), then `pnpm --filter @hunch-vpm/subgraph deploy:mainnet`.
+5. Open markets on the Chainlink feed addresses. Set `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_MAINNET`,
+   `NEXT_PUBLIC_HUNCH_MARKET_IDS_MAINNET`, `NEXT_PUBLIC_ARC_RPC_URL` and `NEXT_PUBLIC_ARC_EXPLORER_URL`
+   in Vercel.
+6. Add a mainnet keeper job with its own funded key.
+
+**The contracts are not audited.** The web surface already shows a non-dismissible notice on
+mainnet. Keep seeds small until that changes.
+
 ## Substreams
 
 The package builds, tests and packs today. It cannot stream, because there is no public
@@ -659,8 +838,8 @@ one go.
 ## The public subgraph URL is checked at build time
 
 `NEXT_PUBLIC_*` variables are inlined by Next into the bundle every visitor downloads. The
-Graph gateway carries its API key in the URL path, so a keyed gateway URL in
-`NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` or `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL` would publish that key
+Graph gateway carries its API key in the URL path, so a keyed gateway URL in any
+`NEXT_PUBLIC_HUNCH_SUBGRAPH_URL*` or `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL*` variable would publish that key
 to everyone who opens the site.
 
 `apps/web` refuses to build in that case. `readPublicEndpoint` throws at module load, so

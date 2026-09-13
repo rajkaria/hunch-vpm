@@ -31,6 +31,7 @@ export { counterpartyTrust, subgraphReputationLookup } from './reads/counterpart
 export type { CounterpartyTrustOptions, ReputationLookup } from './reads/counterpartyTrust.js';
 export { vestingEarned } from './reads/vestingEarned.js';
 export { claimable } from './reads/claimable.js';
+export { decodeOwnedPosition, ownerPositions } from './reads/positions.js';
 export { marketBook } from './reads/marketBook.js';
 export type { MarketBookOptions } from './reads/marketBook.js';
 export { NotFoundError } from './reads/shared.js';
@@ -151,9 +152,11 @@ export type {
   OpposingSideTrust,
   OutcomeHeadroom,
   OutcomeOdds,
+  OwnedPosition,
   Position,
   PositionState,
   ResolutionSpec,
   SettlerKind,
   VestingEarned,
+  WalletPositions,
 } from './types.js';

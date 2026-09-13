@@ -1,0 +1,60 @@
+name: keeper
+
+# Settles frozen Arc testnet markets. One pass per run, as the keeper is designed to run.
+#
+# The spec ids come from deployments/arc-testnet.json, so opening a market and committing its
+# entry is all it takes to put it under the keeper. Without the KEEPER_PRIVATE_KEY secret this
+# runs as a dry run and only reports; with it, it sends `resolve` for every spec whose feed is
+# fresh. It never voids — `--allow-void` is an operator's decision, not a schedule's.
+#
+# GitHub runs schedules on the default branch only, at best every five minutes and sometimes late.
+# Lateness costs nothing: the book froze at `resolutionTime` whenever `resolve` lands.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keeper-arc-testnet
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ARC_RPC_URL: https://rpc.testnet.arc.io
+      ARC_CHAIN_ID: "5042002"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @hunch-vpm/agent... build
+
+      - name: specs to watch
+        id: specs
+        run: |
+          echo "resolver=$(jq -r .feedResolver deployments/arc-testnet.json)" >> "$GITHUB_OUTPUT"
+          echo "ids=$(jq -r '[.markets[]?.specId] | join(",")' deployments/arc-testnet.json)" >> "$GITHUB_OUTPUT"
+
+      - name: keeper pass
+        if: steps.specs.outputs.ids != ''
+        env:
+          FEED_RESOLVER: ${{ steps.specs.outputs.resolver }}
+          KEEPER_SPEC_IDS: ${{ steps.specs.outputs.ids }}
+          KEEPER_PRIVATE_KEY: ${{ secrets.KEEPER_PRIVATE_KEY }}
+        run: |
+          if [ -n "$KEEPER_PRIVATE_KEY" ]; then
+            node agent/dist/keeper/main.js --live
+          else
+            echo "::notice::KEEPER_PRIVATE_KEY is not set — dry run, nothing will be sent"
+            node agent/dist/keeper/main.js
+          fi

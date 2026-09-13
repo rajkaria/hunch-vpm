@@ -3,11 +3,17 @@ feature: deploy-ops
 globs:
   - scripts/**
   - contracts/script/**
+  - contracts/broadcast/**
+  - contracts/src/oracles/**
   - contracts/foundry.toml
   - contracts/.gitignore
+  - cre/**
   - deployments/**
   - agent/src/keeper/**
   - subgraph/package.json
+  - subgraph/networks.json
+  - subgraph/subgraph.yaml
+  - subgraph/tools/**
   - subgraph-erc8004-arc/networks.json
   - docs/RUNBOOK.md
   - .github/workflows/**
@@ -17,92 +23,109 @@ updated: 2026-09-13
 
 # Deploying and operating the venue
 
-Covers the deploy path and preflight, the resolver keeper, subgraph deploys, CI, and Vercel.
+Covers the deploy path and preflight, address wiring, oracles (Chainlink CRE relay), the resolver
+keeper, subgraph deploys, CI, and Vercel.
 
 ## Current state — what's working, deployed, broken
 
-**Deployed:** web surface only — Vercel project `hunch-vpm`, <https://hunch-vpm.vercel.app>,
-auto-deploys on push to `main`. **Nothing on-chain; neither subgraph published.**
+**Arc testnet (all verified on Arcscan)**. Source of truth: `deployments/arc-testnet.json`.
 
-**Merged (PR after PR #8):** the native-USDC decimals fix (native 18 / ERC-20 6), documented
-testnet RPC, Blockscout verification with no API key, the dry-run ignore fix, and Studio deploy
-scripts. `pnpm verify` PASSED end to end with nothing else running. Never run verify alongside
-`next dev` or a forge simulation — an agent test times out under that load.
+| Contract | Address | Block |
+|---|---|---|
+| VestedParimutuel | `0xC743940C75619f65F6178b7e49c0C3A0bE012Eec` | 61840931 |
+| ClassicParimutuel | `0x21603b2176aB8495A81fF3B3bE853C64f3860D57` | 61840931 |
+| StorkOracle (unused, Stork is dead) | `0x5938F12246642aE8E6A47Efbaa72a454EafD4287` | 61840931 |
+| FeedResolver | `0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3` | 61840931 |
+| MarketFactory | `0x0380C6FC136AE64432558e407706a5C7E7652f07` | 61840932 |
+| **ChainlinkCreOracle** | `0x68A79146C52dcA1cBea8a0Da9aCF506D5894c621` (owner = deployer, forwarder = prod KeystoneForwarder `0x76c9…5E62`, **unconfigured: accepts nothing yet**) | 61858720 |
 
-**Testnet deploy is proven viable without spending anything.** Stock Foundry 1.5.1 simulated
-`Deploy.s.sol` against live Arc testnet (no `--broadcast`): all five contracts deploy, ~7.35M
-gas. Forge prints "0.30 ETH" — on Arc that is native USDC at 18 decimals, so **~0.30 USDC**.
-`arc-forge` (Arc's Foundry fork in their docs) is not required for this script.
+**Markets open** (2 USDC per side, kappa 30, voidTimeout 3 d, maxStaleness 5400 s, oracle = CRE adapter):
+- `0xc743…2eec-0` BTC / USD ≥ $77,000 @ 2026-09-15 16:00 UTC, spec `0x49a5f58c…c0ff`
+- `0xc743…2eec-1` ETH / USD ≥ $2,500 @ 2026-09-20 16:00 UTC, spec `0xa89bf6c8…70dc`
 
-**Preflight run live against testnet:** RPC ok, chain 5042002, Stork has code, Blockscout
-verification ready. Still refuses: **no keystore** (`~/.foundry/keystores/` empty), no Graph
-Studio auth on the machine.
+Both indexed by the Studio subgraph. Deployer keeps about 11.8 USDC (ERC-20 view).
 
-## Verified Arc facts (checked 2026-09-13, primary sources + on-chain)
+**Subgraphs:** `hunch-vpm-arc-testnet` v0.0.1 is at head. `erc-8004-arc-testnet` v0.0.1 was at
+block 41.08M of 61.86M at 12:00 IST (still backfilling, no errors). The user says both are
+published to the Network. Query URLs: `https://api.studio.thegraph.com/query/1760242/<slug>/v0.0.1`.
 
-- **Native USDC = 18 decimals; ERC-20 view at `0x3600…0000` = 6.** One balance. On-chain: one
-  holder reads 3,141,473,534,331 via `balanceOf` and ×10^12 via `eth_getBalance`. The repo said
-  "6 natively" everywhere — wrong, now fixed in web/client/mcp/keeper/preflight/docs.
-- **Testnet:** chain 5042002, RPC `https://rpc.testnet.arc.io` (docs' primary; old
-  `rpc.testnet.arc.network` still answers), explorer `https://testnet.arcscan.app`, faucet
-  `https://faucet.circle.com`.
-- **Arcscan is Blockscout** → verify with `--verifier blockscout --verifier-url
-  https://testnet.arcscan.app/api/`, **no API key**. The old `ARCSCAN_API_KEY` never existed and
-  the preflight would have skipped verification silently.
-- **Mainnet: public launch 16 Sept 2026** (Circle pressroom). Chain id **5042** (The Graph lists
-  slug `arc` = eip155:5042). **Official RPC and explorer NOT published yet** — Circle publishes
-  at launch. Ignore third-party "mainnet RPC" claims.
-- **Oracles on mainnet: none verified.** Stork lists Arc testnet only. Arc joined Chainlink Scale
-  (Data Feeds among products) but no Arc feed addresses found. **Mainnet markets cannot resolve
-  until one exists.**
-- **ERC-8004 registries:** testnet addresses live (have code); no mainnet addresses published.
-- **The Graph:** supports `arc-testnet` and `arc`; graph-cli 0.98.1 builds `--network arc`.
+**Vercel** (`hunch-vpm`, linked in this worktree): `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET`,
+`NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` and `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` (both ids)
+are set for prod, preview and dev. PR #10's preview first failed at build (`Cannot find module
+@hunch-vpm/client/dist`). With that patched, the live reads failed at runtime ("The index could not be
+reached"), because `live.ts` imported the client through a variable specifier. Nothing bundled it,
+so the function's file trace had no client. Fix: a literal `import('@hunch-vpm/client')` (with
+`@ts-ignore`), web `build`/`dev` scripts that build the client first, and vitest aliasing the client
+to its source. Turbopack cannot alias the client to source, because it won't map `.js`→`.ts` in
+workspace packages.
+
+**Keeper:** `.github/workflows/keeper.yml` runs every 10 min on `main`, taking spec ids from the
+deployments file. It is a dry run until the `KEEPER_PRIVATE_KEY` repo secret exists.
+
+**MCP/agent env:** `packages/mcp/.env.example` now carries the real testnet settlers and Studio
+URLs. The agent's `HUNCH_SETTLER` / `HUNCH_MARKET_IDS` values are documented in `agent/README.md` and the RUNBOOK.
+Neither process runs anywhere hosted; whoever launches one sets its env.
+
+## Verified facts (2026-09-13)
+
+- **Native USDC = 18 dp; ERC-20 view `0x3600…0000` = 6.**
+- **Stork on Arc testnet is dead:** last push 2026-06-14, block 47,013,326. `getTemporalNumericValueV1`
+  reverts `StaleValue()` (validity 3600 s). Pushing needs a Stork API key.
+- **Pyth on Arc testnet** `0x2880…C17B43` (v1.4.5-alpha.1): Arc testnet was left out of the Pyth
+  Core upgrade (2026-08-26), and Hermes now needs an API key (`pyth.dourolabs.app/hermes`). Rejected.
+- **Chainlink Data Feeds: Arc MAINNET only.** 30 feeds in `feeds-arc-mainnet.json`: ETH/USD proxy
+  `0x50FCDD99D6762D1C170DC6A9111db944AEE6D364`, BTC/USD `0xa109B535C70C8Be9995be64Bb6751AcDB27e03De`,
+  8 dp, 24 h heartbeat. There are none on testnet.
+- **CRE on Arc testnet:** production KeystoneForwarder `0x76c9cf548b4179F8901cda1f8623568b58215E62`
+  ("KeystoneForwarder 1.0.0", has code). The simulation MockKeystoneForwarder `0x6E9E…dc1` checks no
+  signatures, so it is never trusted. CLI ≥ 1.0.7; deploy access is gated (`cre account access`).
+- **Sepolia source feeds** (on-chain `description()` checked): ETH/USD
+  `0x694AA1769357215DE4FAC081bf1f309aDC325306`, BTC/USD `0x1b44F3514812d835EB1BDB0acB33d3fA3351Ee43`,
+  8 dp, fresh.
+- `@chainlink/cre-sdk@1.21.0` is a broken publish (`workspace:*` dep); pinned 1.20.0.
+- Hermes/Studio POSTs via `curl` are blocked in this shell (security hook). Use the Browser pane's JS
+  `fetch` from the target origin. `node`, `rm` and `curl` are shell-blocked; pnpm scripts and bun work.
+- Mainnet: launch 16 Sept, chain 5042. Chainlink docs name `explorer.arc.io`; the RPC is unpublished.
 
 ## Recent changes — files touched and why
 
-- `scripts/preflight-deploy.sh` — native balance read at 18 decimals; Blockscout verify flags
-  always printed for testnet, mainnet only once `ARC_VERIFIER_URL` is set.
-- `contracts/foundry.toml` — removed the `[etherscan]` entry that demanded a nonexistent key.
-- `contracts/.gitignore` — `broadcast/*/dry-run/` never matched (forge nests two levels); now
-  `broadcast/**/dry-run/`. Real broadcast receipts stay trackable.
-- `subgraph/package.json` — `deploy:testnet`/`deploy:mainnet` target Subgraph Studio (old script
-  used the retired hosted service).
-- `agent/src/keeper/cli.ts` — native currency 18 decimals.
-- `docs/RUNBOOK.md`, `deployments/README.md`, `docs/SUBMISSION-CHECKLIST.md` — Blockscout
-  verification, no API key, stock-forge note with the ~0.30 USDC figure.
+- `contracts/src/oracles/ChainlinkCreOracle.sol` + `test/ChainlinkCreOracle.t.sol` (20 tests, incl. e2e
+  settle) + `script/DeployCreOracle.s.sol` + `broadcast/DeployCreOracle.s.sol/5042002/`.
+- `cre/` — `price-relay` workflow (bun, outside the pnpm workspace), `report.ts` byte-checked
+  against `cast abi-encode`, `project.yaml`, README.
+- `deployments/arc-testnet.json` — `chainlinkCreOracle`, `creForwarder`, `markets[]`.
+- `scripts/wire-deployment.mjs` — `OPTIONAL_WEB` keys (`chainlinkCreOracle`), zero when absent.
+- `apps/web/src/lib/chain.ts` (+`chainlinkCreOracle`), `lib/data/live.ts` (`oracleNameFor`, CRE feed
+  labels), `test/oracle-name.test.ts`.
+- `vercel.json` — `web...` filter. `.github/workflows/keeper.yml` — new.
+- Docs: RUNBOOK (Stork dead, CRE section, markets, GH keeper, **Arc mainnet** section), deployments
+  README, SUBMISSION, DEMO, `packages/mcp/.env.example`.
 
-## Key decisions — choices and trade-offs, why X over Y
+## Key decisions
 
-- **Keeper is its own binary**, not an agent subcommand — it holds gas money only.
-- **`--allow-void` OFF by default** — a wrongly voided market cannot be un-voided.
-- **Dry run default; `--live` without a key is an error**, never a silent downgrade.
-- **No guessed mainnet RPC/explorer/oracle anywhere.** Each is config until published.
-- **Verification on the CLI, not in foundry.toml** — Blockscout needs no key, and a toml entry
-  interpolating an unset key only fails at the worst moment.
-- **`.ocean/` stays untracked** (repo gitignores it; public submission repo).
+- **Chainlink over Pyth/Stork** — the user asked for Chainlink (a hackathon sponsor). The testnet route is
+  CRE, not Data Feeds; mainnet uses `ChainlinkFeedOracle` directly.
+- **The adapter fails closed**: forwarder-only, requires workflow owner/id, and `lock()` makes it trustless.
+- **Store the source round timestamp**, so staleness is honest; maxStaleness 5400 s over a 1 h heartbeat.
+- **Markets opened before the relay runs.** Harmless: the keeper waits, and after voidTimeout anyone voids
+  with full refunds.
+- **Keeper on GitHub Actions**: no raw key ever passed through the agent; the operator sets the secret.
 
-## Traps that cost money
+## Traps
 
-- RPC answering but on the **wrong chain** (preflight checks).
-- **18 vs 6 decimals** — `cast balance`/gas are 18; `balanceOf`/stakes are 6.
-- Unrecognised `ORACLE_KIND` silently becomes Stork.
-- `Deploy.s.sol` writes no file — cut the JSON out of `deploy.log`.
-- `forge script --account` prompts for the password interactively — the operator runs it, or a
-  `--password-file` is supplied.
-- `graph build --network X` **rewrites `subgraph.yaml` in place** — never run it as a probe.
+- `vercel link` appends `.env*` to `.gitignore`, which would ignore `.env.example`. Revert it.
+- `vercel env` needs the worktree linked (`vercel link --yes --project hunch-vpm --scope rajkaria67-1831s-projects`).
+- **18 vs 6 decimals**; `| tee` without pipefail; empty forge-std in a new worktree; `graph build --network`
+  rewrites the manifest.
+- Web `/m/[id]` has `dynamicParams = false` — a new market id needs a redeploy.
 
 ## Next steps
 
-1. **Testnet deploy:** operator runs `cast wallet import arc-deployer --interactive`, funds it
-   (~1 USDC is plenty) at faucet.circle.com, `export ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io`,
-   `bash scripts/preflight-deploy.sh arc-deployer testnet`, runs the printed command.
-2. Cut `deployments/arc-testnet.json`; wire addresses through the **six** places in RUNBOOK;
-   record head block as subgraph `startBlock`.
-3. **Subgraphs (testnet):** operator creates two Studio subgraphs (Arc Testnet) and runs
-   `npx graph auth <key>` locally. Deploy `erc8004-arc` now (addresses already set), `hunch-vpm`
-   after step 3. Put the keyless Studio query URLs in Vercel env.
-4. Run `node agent/dist/keeper/main.js --help` once; then schedule it on testnet.
-5. **Mainnet, after 16 Sept:** take chain id/RPC/explorer from docs.arc.io; set
-   `ARC_MAINNET_RPC_URL`, `NEXT_PUBLIC_ARC_RPC_URL`, `NEXT_PUBLIC_ARC_EXPLORER_URL`,
-   `ARC_VERIFIER_URL`; **obtain a verified oracle** (Stork mainnet address or a Chainlink Arc
-   feed) — blocking; mainnet subgraph slug `arc`; ERC-8004 mainnet addresses when published.
+1. **Merge PR #10** → production builds with the per-network data layer and the market ids.
+2. **Operator (CRE):** `cre login` → `cre account access` → once granted, `cre workflow deploy price-relay
+   --target production-settings` (from `cre/`) → `setExpectedWorkflowId`/`setExpectedAuthor` on the adapter → `lock()`.
+   Needed before 2026-09-15 16:00 UTC for BTC market to resolve (else void after +3 d, refunds).
+3. **Operator (keeper):** `cast wallet new`, fund ~1 USDC, `gh secret set KEEPER_PRIVATE_KEY`.
+4. Browser-verify the production board/market pages and walk a real wallet stake (needs a human wallet).
+5. Confirm `erc-8004-arc-testnet` reaches head.
+6. Mainnet after 16 Sept: RUNBOOK "Arc mainnet" section.

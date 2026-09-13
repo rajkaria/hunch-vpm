@@ -126,11 +126,12 @@ describe('trade: unsigned calldata, never a signed transaction', () => {
   });
 
   it('targets the settler and asset the index reports, not a configured default', async () => {
-    // Nothing is set in `addresses`, so the configured settler is still the
-    // zero placeholder. The rail uses the market's own settler, so an
-    // unconfigured deployment never blocks a trade.
+    // Nothing is set in `addresses`, so the configured settler is the network
+    // default — a different contract from the one this market's index row names.
+    // The rail uses the market's own settler, so a stale or unconfigured default
+    // never redirects a trade.
     const { rail } = headroomRail();
-    expect(rail.client.config.addresses.vestedParimutuel).toBe('0x0000000000000000000000000000000000000000');
+    expect(rail.client.config.addresses.vestedParimutuel.toLowerCase()).not.toBe(SETTLER.toLowerCase());
 
     const trade = await rail.trade(MARKET_HEADROOM, 'no', 10_000000n);
     expect(trade.steps.find((step) => step.id === 'enter')?.call.to).toBe(SETTLER);

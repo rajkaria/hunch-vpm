@@ -125,8 +125,11 @@ export interface PositionView {
   refused: bigint;
   /** A_o at entry. */
   entryAcc: bigint;
-  /** The block whose vintage this entry joined. 0 is the reserved seed vintage. */
-  vintage: bigint;
+  /**
+   * The block whose vintage this entry joined. 0 is the reserved seed vintage.
+   * `null` on a classic market, which does not batch entries by block at all.
+   */
+  vintage: bigint | null;
   finalized: boolean;
   refundWithdrawn: boolean;
   claimed: boolean;

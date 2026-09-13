@@ -102,6 +102,8 @@ unavailable.
 
 ### 5. Deploy the contracts to Arc testnet **[you]** → then **[either]**
 
+**Done 2026-09-13.** `deployments/arc-testnet.json`; all five contracts verified on Arcscan.
+
 The big one — everything remaining depends on it.
 
 What is needed from you:
@@ -143,6 +145,8 @@ what the script printed.
 
 ### 6. Wire the addresses through **[either]**
 
+**Done 2026-09-13.** `pnpm wire:testnet` wrote them; `pnpm wire:check` (in `pnpm verify`) keeps them in step.
+
 Six places read them and **none are wired to each other**:
 
 | Where | What |
@@ -162,19 +166,20 @@ Same Studio key as step 3, second subgraph, after step 6:
 
 ```sh
 cd subgraph
-pnpm codegen
-npx graph build --network arc-testnet
-npx graph deploy hunch-vpm --network arc-testnet
+pnpm run deploy:testnet --version-label v0.0.1   # Studio subgraph: hunch-vpm-arc-testnet
 ```
+
+Addresses and start blocks are already wired (`pnpm wire:testnet`, 2026-09-13).
 
 **Done when:** Studio reports it synced past the contracts' deployment block.
 
 ### 8. Take the surface off fixtures **[either]**
 
-Set `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` (keyless Studio URL — same warning as step 4) and
-`NEXT_PUBLIC_HUNCH_MARKET_IDS` in Vercel, then redeploy.
+Set `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` (keyless Studio URL — same warning as step 4),
+`NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` and `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` in Vercel,
+then redeploy.
 
-`NEXT_PUBLIC_HUNCH_MARKET_IDS` is the complete set of `/m/<id>` routes, because the market page
+The market-id variables are the complete set of `/m/<id>` routes, because the market page
 sets `dynamicParams = false`. A market not listed there has no page.
 
 **Done when:** the **SAMPLE DATA** banner is gone and the board lists real markets.

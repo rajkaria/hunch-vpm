@@ -1,4 +1,4 @@
-import { addressExplorerUrl, isDeployed } from '@/lib/chain';
+import { addressExplorerUrl, isDeployed, type ChainFacts } from '@/lib/chain';
 import { shortAddress } from '@/lib/units';
 
 /**
@@ -13,12 +13,15 @@ export function AddressLink({
   address,
   label,
   className = '',
+  chain,
 }: {
   address: string;
   label?: string;
   className?: string;
+  /** Which chain's explorer to link into. Defaults to testnet's; mainnet's is unpublished, so it links nowhere. */
+  chain?: ChainFacts;
 }) {
-  const url = addressExplorerUrl(address);
+  const url = addressExplorerUrl(address, chain);
   const text = label ?? shortAddress(address);
 
   if (!isDeployed(address)) {

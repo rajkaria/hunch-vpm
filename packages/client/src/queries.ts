@@ -202,6 +202,27 @@ export function walletPositionsQuery(): string {
 }
 
 /**
+ * Everything a wallet holds or has held, claimed positions included: the
+ * portfolio question, where `walletPositionsQuery` is the claims one. Paged by
+ * `id`, which is stable under `skip`; the read orders by `createdAt` itself.
+ */
+export function ownerPositionsQuery(): string {
+  return `query OwnerPositions($owner: String!, $first: Int!, $skip: Int!) {${META}
+  positions(
+    where: { owner: $owner }
+    first: $first
+    skip: $skip
+    orderBy: id
+    orderDirection: asc
+  ) {${POSITION_FIELDS}
+    createdAt
+    market {${marketFragment(false)}
+    }
+  }
+}`;
+}
+
+/**
  * Markets whose residue this wallet is named to sweep and has not swept.
  *
  * Deliberately not filtered on `status`: a wallet owns few enough markets that

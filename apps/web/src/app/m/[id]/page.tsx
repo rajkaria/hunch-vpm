@@ -13,12 +13,11 @@ import { RuleComparator, type WireBook, type WirePosition } from '@/components/m
 import { SettlerBadge, StatusBadge } from '@/components/market/StatusBadge';
 import { VestingCurve, type CurveSeries } from '@/components/market/VestingCurve';
 import { Amount, Badge, Panel, PanelHeader, Stat } from '@/components/ui/primitives';
-import { dataSource } from '@/lib/data';
+import { dataSourceFor } from '@/lib/data';
+import { selectedNetwork } from '@/lib/network-server';
 import type { MarketDetail } from '@/lib/data/types';
 import { formatUtc } from '@/lib/time';
 import { ACC_SCALE, formatAmount } from '@/lib/units';
-
-export const revalidate = 30;
 
 /**
  * Only the ids `generateStaticParams` returned are routes; anything else is a
@@ -28,19 +27,22 @@ export const revalidate = 30;
  * ISR-cached `notFound()` is served with a 200, so a wrong address would
  * answer "Nothing here" while telling every crawler and every client that the
  * page exists. The set of ids is not a limitation either — the board and these
- * pages read the same list, from the fixtures or from
- * NEXT_PUBLIC_HUNCH_MARKET_IDS, so a market that is listed always has a page.
+ * pages read the same lists, from the fixtures or from each network's
+ * NEXT_PUBLIC_HUNCH_MARKET_IDS_*, so a market that is listed always has a page.
+ * An id listed on the other network renders this network's 404.
  */
 export const dynamicParams = false;
 
 export async function generateStaticParams(): Promise<{ id: string }[]> {
-  const markets = await dataSource.listMarkets();
-  return markets.map((market) => ({ id: market.id }));
+  const lists = await Promise.all(
+    (['testnet', 'mainnet'] as const).map((network) => dataSourceFor(network).listMarkets()),
+  );
+  return [...new Set(lists.flat().map((market) => market.id))].map((id) => ({ id }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
-  const market = await dataSource.getMarket(id);
+  const market = await dataSourceFor(await selectedNetwork()).getMarket(id);
   if (market === null) return { title: 'Market not found' };
 
   const description = `${market.subject} · ${formatAmount(market.acceptedPool)} USDC of accepted principal, settled under the ${
@@ -76,7 +78,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function MarketPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const market = await dataSource.getMarket(id);
+  const network = await selectedNetwork();
+  const market = await dataSourceFor(network).getMarket(id);
   if (market === null) notFound();
 
   const now = Math.floor(Date.now() / 1000);
@@ -263,7 +266,7 @@ export default async function MarketPage({ params }: { params: Promise<{ id: str
 
           <Panel>
             <PanelHeader title="Contracts" />
-            <ContractsPanel market={market} />
+            <ContractsPanel market={market} network={network} />
           </Panel>
         </div>
       </div>

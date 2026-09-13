@@ -9,6 +9,7 @@ globs:
   - apps/web/src/components/portfolio/**
   - apps/web/src/app/api/**
   - packages/client/src/chains.ts
+  - packages/client/src/reads/positions.ts
   - packages/mcp/src/client-loader.ts
 updated: 2026-09-13
 ---
@@ -34,34 +35,42 @@ the wallet); **WalletConnect** using main Hunch's public project id; **non-dismi
 empty), tests updated. Stake amounts correctly stay on the 6-decimal ERC-20 unit
 (`USDC_DECIMALS`).
 
-**Serving fixtures on both networks.** Nothing deployed; transactional controls gated on
-`isDeployed()`. The transactional path is **untested against a real chain**.
+**Contracts are live on Arc testnet and wired** into `lib/chain.ts` (`ARC_TESTNET_ADDRESSES`,
+incl. `priceOracle`), so testnet transactional controls target real contracts. **Both networks
+still serve fixtures in production** until PR #10 merges (Vercel already has
+`NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` = the Studio query URL; no market ids yet); fixture markets use the zero settler, so
+their controls stay gated. The transactional path is **still untested end-to-end on chain**.
+
+**Per-network data layer (done, this session):** `dataSourceFor(network)` in `lib/data/index.ts`
+reads `NEXT_PUBLIC_{HUNCH_SUBGRAPH_URL,ERC8004_SUBGRAPH_URL,HUNCH_MARKET_IDS}_{TESTNET,MAINNET}`
+(unsuffixed = testnet; mainnet never falls back). The toggle mirrors its choice into the
+`hunch-vpm.network` cookie; layout/board/market/agents render for `selectedNetwork()`
+(`lib/network-server.ts`) and `NetworkSync` calls `router.refresh()` when they disagree.
+`/api/positions` + `/api/claimable` take `?network=` (400 otherwise) and echo it. Footer,
+ContractsPanel and registry links follow the network.
+
+**Live positions (done):** client `positions(wallet)` (`reads/positions.ts`, all positions incl.
+claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one positions read + one
+`marketBook` per distinct market. `PositionView.vintage` is now `bigint | null` (classic ≠ seed).
 
 **Broken / absent:**
-- **Data layer is single-network.** The toggle switches the chain and addresses you transact
-  with, but the board reads one subgraph (`NEXT_PUBLIC_HUNCH_SUBGRAPH_URL`). For real
-  dual-network use, `lib/data` + both API routes need a per-network subgraph URL and a
-  `network` parameter. Not built.
-- **Live per-address positions return nothing** — client has no `positions(where:{owner})`
-  read. Fix is a client read + one call in `live.ts`; `test/portfolio.test.ts` pins it.
-- **Mainnet cannot add-to-wallet** until `NEXT_PUBLIC_ARC_RPC_URL` is set (no published RPC).
-  Mainnet explorer links suppressed until `NEXT_PUBLIC_ARC_EXPLORER_URL` is set.
-- `ARC_MAINNET_ADDRESSES` all placeholders (ours, ERC-8004, Stork).
-- Server-rendered displays (footer, ContractsPanel network row, /agents registry links) still
-  read testnet facts regardless of the toggle.
-- No per-market OG image; no rate limiting on `/api/claimable`, `/api/positions`.
+- **Pages are now dynamic** (cookie) — no ISR on board/market/agents. Fine on Fluid compute; revisit if load matters.
+- Client components with no network prop (`AddressLink` default) still link testnet's explorer.
+- **`next dev` quirk:** after a toggle, `router.refresh()` can leave the market page's own segment stale while the layout updates. `next start` refreshes it correctly — browser-verified testnet → mainnet → testnet on the production build (contracts panel, footer, cookie, no console errors). Verify network switching on a build, not dev.
+- **Mainnet cannot add-to-wallet** until `NEXT_PUBLIC_ARC_RPC_URL`; explorer links suppressed until `NEXT_PUBLIC_ARC_EXPLORER_URL`.
+- `ARC_MAINNET_ADDRESSES` all placeholders. No per-market OG image; no rate limiting on the API routes.
 
 ## Recent changes — files touched and why
 
-- `src/lib/chain.ts` — `ARC_MAINNET_ADDRESSES`, `NETWORKS`, `networkForChainId`, mainnet explorer
-  from env.
-- `src/lib/wallet/network.tsx` (new) — `NetworkProvider`/`useNetwork`, localStorage choice.
-- `src/lib/wallet/chains.ts` — `CHAINS` for both, `DEFAULT_NETWORK` (testnet); 18-decimal native.
-- `src/lib/wallet/config.ts` — both chains + transports; WalletConnect id defaults to Hunch's.
-- `src/lib/wallet/useWallet.ts` — compares wallet chain against the *selected* network.
-- `src/components/wallet/NetworkToggle.tsx`, `MainnetNotice.tsx` (new); header + layout wired.
-- `src/components/market/EntryFlow.tsx` — addresses/explorer from the selected network.
-- Tests: `network-toggle.test.tsx` (new), `wallet-config.test.ts`, `wallet-chains.test.ts`.
+- `src/lib/network.ts`, `src/lib/network-server.ts`, `src/components/wallet/NetworkSync.tsx` (new).
+- `src/lib/data/index.ts` (per network), `kind.ts` (`dataSourceKinds`), `request-network.ts` (new),
+  `live.ts` (`network`, `createClient` injection, `getPositions`, addresses per network).
+- `src/lib/wallet/network.tsx` (`initialNetwork`, cookie), `WalletProvider.tsx`, `app/layout.tsx`,
+  `app/page.tsx`, `app/m/[id]/page.tsx` (static params = union of both networks), `app/agents/page.tsx`.
+- `Portfolio.tsx`, `ClaimList.tsx` (network in URL + query key; `isPending` so a disabled query
+  does not flash the error state), `PositionGate.tsx`, `SiteFooter.tsx`, `ContractsPanel.tsx`, `AddressLink.tsx`.
+- Tests: `network-data.test.ts` (new), `portfolio.test.ts` (live source), `network-toggle.test.tsx`
+  (cookie, NetworkSync, footer), `degraded.test.tsx`.
 
 ## Key decisions — choices and trade-offs, why X over Y
 
@@ -88,10 +97,8 @@ empty), tests updated. Stake amounts correctly stay on the 6-decimal ERC-20 unit
 
 ## Next steps
 
-1. **Per-network data layer:** `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_{TESTNET,MAINNET}` (and ERC-8004),
-   `network` param on `/api/claimable` + `/api/positions`, board/market pages network-aware, and
-   make footer/ContractsPanel/agents read the selected network.
-2. Client `positions(where:{owner})` read → `live.ts:getPositions`.
-3. After testnet deploy: fill `ARC_TESTNET_ADDRESSES`, walk approve → enter → partial → close
-   vintage → claim → void on real testnet.
-4. After mainnet launch: set mainnet RPC/explorer env and addresses; rate-limit the API routes.
+1. After PR #10 merges and a market is opened + its id set in `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`
+   (deploy-ops next steps 1-3): browser-verify the live board, market page and portfolio on the
+   production URL, then walk approve → enter → partial → close vintage → claim → void on testnet.
+2. Pass the selected network's `ChainFacts` to client-side `AddressLink`s (StakePanel, ClaimList).
+3. After mainnet launch: mainnet RPC/explorer env, addresses via `pnpm wire:mainnet`; rate-limit the API routes.

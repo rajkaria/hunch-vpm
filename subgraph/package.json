@@ -10,9 +10,8 @@
     "build": "graph build",
     "typecheck": "graph codegen && graph build",
     "test": "graph test",
-    "deploy:testnet": "graph deploy hunch-vpm-arc-testnet --network arc-testnet --node https://api.studio.thegraph.com/deploy/",
-    "deploy:mainnet": "graph deploy hunch-vpm-arc --network arc --node https://api.studio.thegraph.com/deploy/",
-    "deploy:studio": "graph deploy hunch-vpm --network arc-testnet"
+    "deploy:testnet": "graph codegen && node tools/with-network.mjs arc-testnet deploy hunch-vpm-arc-testnet --node https://api.studio.thegraph.com/deploy/",
+    "deploy:mainnet": "graph codegen && node tools/with-network.mjs arc deploy hunch-vpm-arc --node https://api.studio.thegraph.com/deploy/"
   },
   "dependencies": {
     "@graphprotocol/graph-cli": "0.98.1",

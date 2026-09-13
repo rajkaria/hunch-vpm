@@ -2,8 +2,9 @@
 
 import { PositionPanel } from '@/components/market/PositionPanel';
 import { EmptyState } from '@/components/ui/primitives';
-import { dataSourceKind } from '@/lib/data/kind';
+import { dataSourceKinds } from '@/lib/data/kind';
 import type { MarketDetail } from '@/lib/data/types';
+import { useNetwork } from '@/lib/wallet/network';
 import { truncateAddress, useWallet } from '@/lib/wallet/useWallet';
 
 /**
@@ -22,6 +23,7 @@ import { truncateAddress, useWallet } from '@/lib/wallet/useWallet';
  */
 export function PositionGate({ market }: { market: MarketDetail }) {
   const wallet = useWallet();
+  const { network } = useNetwork();
 
   if (wallet.address === null) {
     return (
@@ -32,13 +34,13 @@ export function PositionGate({ market }: { market: MarketDetail }) {
     );
   }
 
-  if (dataSourceKind === 'fixture') {
+  if (dataSourceKinds[network] === 'fixture') {
     return (
       <div>
         <p className="border-b border-edge px-4 py-3 text-xs leading-snug text-faint sm:px-5">
           Connected as <span className="num text-muted">{truncateAddress(wallet.address)}</span>.
-          The position below belongs to the sample wallet, not to you — no contracts are deployed,
-          so there is nothing on-chain to read for your address.
+          The position below belongs to the sample wallet, not to you — this network&rsquo;s index
+          is not connected, so there is nothing on-chain to read for your address here.
         </p>
         <PositionPanel market={market} />
       </div>

@@ -81,11 +81,11 @@ Arc testnet (`chainId 5042002`, RPC `https://rpc.testnet.arc.io`, explorer
 `https://testnet.arcscan.app`) is the default chain. USDC is Arc's **native gas token**, exposed
 behind the ERC-20 interface at `0x3600000000000000000000000000000000000000` with 6 decimals.
 
-The ERC-8004 registries on Arc testnet are real addresses and are filled in. **Our own contracts are
-not deployed yet**, so `vestedParimutuel`, `classicParimutuel`, `marketFactory` and `feedResolver`
-default to the zero placeholder. Building calldata against a placeholder throws rather than
-producing a transaction to nowhere — pass real addresses from `deployments/<network>.json` once
-they exist.
+On Arc testnet every default is real: the ERC-8004 registries, and our own `vestedParimutuel`,
+`classicParimutuel`, `marketFactory` and `feedResolver`, carried in from
+`deployments/arc-testnet.json` by `pnpm wire:testnet` (the tests pin them to that file). **Arc
+mainnet is not deployed**, so its defaults are the zero placeholder, and building calldata against
+a placeholder throws rather than producing a transaction to nowhere.
 
 ### Reading the open vintage
 
@@ -235,6 +235,31 @@ to give yet.
 On a **classic** market `earned` is `null` too — nothing vests there, ever, and a `0` would read as
 "nothing has vested yet" on a market where nothing ever will. `payoutIfOutcomeWins` is still
 defined: it is the flat pool share the classic rule pays.
+
+## `positions(wallet)`
+
+Everything a wallet holds or has held, across every market, newest first.
+
+```ts
+const held = await client.positions('0x2222…2222');
+
+for (const position of held.positions) {
+  position.market;     // the market it sits in, decoded in full
+  position.createdAt;  // unix seconds the entry landed
+  position.finalized;  // whether `accepted` is fixed yet
+  position.claimed;    // claimed positions are listed too
+}
+held.index.block;      // the index head this answer was read at
+```
+
+This is the portfolio question, and it is wider than `claimable` on purpose. A wallet with three
+live positions and nothing settled has nothing to claim, and an empty claim list reads as money
+gone — so nothing is filtered out here: open, unfinalized, settled and claimed positions are all
+listed. Use `claimable` for what can be pulled right now, and the rail's `positions` verb when you
+want each one priced.
+
+The collection is paged by `id`, which is stable under `skip`, and ordered by entry time once it is
+all in; two entries from the same block fall back to the settler's position order.
 
 ## `claimable(wallet)`
 

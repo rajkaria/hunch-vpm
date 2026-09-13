@@ -10,6 +10,10 @@
   },
   "scripts": {
     "verify": "bash scripts/verify.sh",
+    "preflight:testnet": "bash scripts/preflight-deploy.sh arc-deployer testnet",
+    "wire:testnet": "node scripts/wire-deployment.mjs testnet",
+    "wire:mainnet": "node scripts/wire-deployment.mjs mainnet",
+    "wire:check": "node scripts/wire-deployment.mjs --check",
     "contracts:build": "forge build --root contracts",
     "contracts:test": "forge test --root contracts"
   },

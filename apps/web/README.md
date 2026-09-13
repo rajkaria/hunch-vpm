@@ -56,13 +56,18 @@ src/lib/data/
 
 `src/lib/data/index.ts` is the only file that chooses. It reads the environment:
 
-| Variable                           | Effect                                                         |
-| ---------------------------------- | -------------------------------------------------------------- |
-| `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL`   | Unset or empty: fixtures. Set: the live source.                 |
-| `NEXT_PUBLIC_HUNCH_MARKET_IDS`     | Comma-separated subgraph ids (`<settler>-<index>`) the board lists. |
-| `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL` | Optional, for reputation reads.                                 |
+| Variable | Effect |
+| --- | --- |
+| `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET`, `_MAINNET` | Per network. Unset or empty: that network serves fixtures. Set: the live source. |
+| `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`, `_MAINNET` | Comma-separated subgraph ids (`<settler>-<index>`) each board lists. |
+| `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET`, `_MAINNET` | Optional, for reputation reads. |
 
-`NEXT_PUBLIC_HUNCH_MARKET_IDS` is also the set of `/m/<id>` routes that exist: the market page
+The unsuffixed names from before the network toggle are still read, as testnet; mainnet never
+falls back to them. Which network a request reads is the header toggle, mirrored into the
+`hunch-vpm.network` cookie so the server renders the same one (`src/lib/network-server.ts`);
+`/api/positions` and `/api/claimable` take `?network=` and refuse anything but an Arc.
+
+The market-id lists are also the set of `/m/<id>` routes that exist: the market page
 sets `dynamicParams = false`, so an unknown id is a real 404 from the router. Letting unknown
 ids render on demand looks more permissive but is worse — an ISR-cached `notFound()` is served
 with a 200, so a wrong address would answer "Nothing here" while telling every crawler that
@@ -148,9 +153,8 @@ The repository is a pnpm workspace, so the project has to be pointed at this dir
 Leave "Include files outside the root directory" enabled — it is on by default and this app
 extends `../../tsconfig.base.json`.
 
-**Environment variables.** None are required: with no `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` the
-deployment serves the fixture dataset and every page renders. Add the three variables above to
-point a deployment at a live subgraph.
+**Environment variables.** None are required: a network with no subgraph URL serves the fixture
+dataset and every page renders. Add a network's variables above to point it at a live subgraph.
 
 **Custom domain.** None of this has been done — the record below does not exist yet. When you
 deploy: add `vpm.playhunch.xyz` under Project → Settings → Domains, then create a `CNAME` on
@@ -165,15 +169,15 @@ product and is not touched by this project. `metadataBase` in `src/app/layout.ts
 `https://vpm.playhunch.xyz`; change it there if the host ever changes, so OpenGraph URLs stay
 absolute and correct.
 
-**Caching.** The board, the market pages and the claim page revalidate every 30 seconds and the
-agents page every 60. The countdowns are client clocks reading an absolute deadline, so they
-stay correct between revalidations.
+**Rendering.** The board, the market pages and the agents page render per request, because
+which Arc they show is the viewer's cookie. The countdowns are client clocks reading an absolute
+deadline.
 
 ## Live data, and the key that must not ship
 
 `NEXT_PUBLIC_*` variables are inlined into the bundle every visitor downloads. The Graph
-gateway carries its API key in the URL path, so pointing `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL` (or
-`NEXT_PUBLIC_ERC8004_SUBGRAPH_URL`) at a keyed gateway URL would publish that key to everyone
+gateway carries its API key in the URL path, so pointing any `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL*` (or
+`NEXT_PUBLIC_ERC8004_SUBGRAPH_URL*`) variable at a keyed gateway URL would publish that key to everyone
 who opens the site.
 
 `src/lib/data/public-env.ts` refuses it. `readPublicEndpoint` throws at module load, so

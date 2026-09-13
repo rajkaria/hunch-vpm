@@ -15,7 +15,7 @@
     "test:node": "vitest run",
     "test:matchstick": "graph test",
     "test:matchstick:coverage": "graph test -c",
-    "deploy:arc-testnet": "node tools/with-network.mjs arc-testnet deploy erc8004-arc-testnet --node https://api.studio.thegraph.com/deploy/",
+    "deploy:arc-testnet": "node tools/with-network.mjs arc-testnet deploy erc-8004-arc-testnet --node https://api.studio.thegraph.com/deploy/",
     "deploy:arc": "node tools/with-network.mjs arc deploy erc8004-arc --node https://api.studio.thegraph.com/deploy/"
   },
   "dependencies": {

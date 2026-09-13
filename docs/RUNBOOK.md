@@ -365,10 +365,10 @@ ours to deploy, and their addresses and start blocks are already in
 pnpm --filter @hunch-vpm/subgraph-erc8004-arc run deploy:arc-testnet --version-label v0.0.1
 ```
 
-Its Studio subgraph must be named **`erc8004-arc-testnet`** (Arc Testnet). The build against
+Its Studio subgraph must be named **`erc-8004-arc-testnet`** (Arc Testnet). The build against
 arc-testnet was checked on 2026-09-13 and succeeds; only the Studio deploy key is missing.
 
-That runs `tools/with-network.mjs arc-testnet deploy erc8004-arc-testnet --node
+That runs `tools/with-network.mjs arc-testnet deploy erc-8004-arc-testnet --node
 https://api.studio.thegraph.com/deploy/`. The mainnet target is `deploy:arc`, and its
 addresses in `networks.json` are still zero — fill them in before using it.
 

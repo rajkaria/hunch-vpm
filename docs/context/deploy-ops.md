@@ -48,16 +48,18 @@ rate-limited), deployment `QmTK35SdoArmdU8oHmH4uNeKhZbaLUnvzVGJfLyKMdBgXs`, sync
 indexing errors. `graph auth` is configured on this machine (account-wide Studio deploy key).
 
 **Not done / blocked:**
-- **`erc8004-arc-testnet` deploy fails: "Subgraph not found"** — twice, with the same account key.
-  The Studio subgraph does not exist under that exact slug (created under another name, or not
-  created). Needs the exact slug from Studio.
+- **`erc-8004-arc-testnet` deployed to Studio (v0.0.1)** — query URL
+  `https://api.studio.thegraph.com/query/1760242/erc-8004-arc-testnet/v0.0.1`, deployment
+  `QmNnxenMCewcii19VGtCZgoU3rDJLfMhKxX9x8aG5c5CSa`. Note the hyphen in the slug. It starts at block
+  29241339 (registry creation), so it was **still backfilling ~32M blocks** at first check (no
+  indexing errors); reputation reads are empty until it reaches head.
 - **Neither subgraph is *published* to The Graph Network.** Publishing is an on-chain transaction
   (Arbitrum One, wallet signature, GRT signal) done in Studio's Publish button or `graph publish`
   (opens a signing web UI). A deploy key cannot publish, and it must be the operator's wallet.
   Also unconfirmed whether the Network indexes Arc testnet at all. Studio query URLs are enough
   for testnet.
-- **Vercel env:** `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` set on production, preview and
-  development for project `hunch-vpm` (no other vars existed). **It only takes effect once PR #10 is
+- **Vercel env:** `NEXT_PUBLIC_HUNCH_SUBGRAPH_URL_TESTNET` and `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET`
+  set on production, preview and development for project `hunch-vpm` (no other vars existed). **It only takes effect once PR #10 is
   merged** — current `main` reads only the unsuffixed name, so production is unchanged until then.
   `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` is unset (no market exists), so the live board will be empty.
 - The Studio deploy key was pasted in chat — operator will rotate it, then re-run `graph auth`.
@@ -124,10 +126,7 @@ indexing errors. `graph auth` is configured on this machine (account-wide Studio
 
 1. **Merge PR #10** (https://github.com/rajkaria/hunch-vpm/pull/10) — production then builds with
    the per-network data layer and the testnet subgraph URL already set in Vercel.
-2. **Get the exact ERC-8004 Studio slug**, deploy it with
-   `pnpm --filter @hunch-vpm/subgraph-erc8004-arc exec node tools/with-network.mjs arc-testnet deploy <slug> --node https://api.studio.thegraph.com/deploy/ --version-label v0.0.1`
-   (or fix the slug in its `deploy:arc-testnet` script), then set
-   `NEXT_PUBLIC_ERC8004_SUBGRAPH_URL_TESTNET` in Vercel (production, preview, development).
+2. Confirm `erc-8004-arc-testnet` has synced to head in Studio (it backfills from block 29241339).
 3. **Open the first market** through MarketFactory `0x0380…2f07` with the funded deployer; add its
    subgraph id (`0xc743940c75619f65f6178b7e49c0c3a0be012eec-0`) to
    `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET` in Vercel; redeploy; confirm the board goes live.

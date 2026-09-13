@@ -24,6 +24,13 @@ claims, portfolio, design system.
 **Live:** <https://vpm.playhunch.xyz> (Vercel `hunch-vpm`, auto-deploys from `main`). Merged
 so far: the full venue plus the runtime network toggle (PR #8).
 
+**Wrong-chain fix (PR #15, 2026-09-13):** a wallet on an unconfigured chain (reported on
+Robinhood Chain) used to read as Arc, so no prompt appeared and "Approve USDC" sent on the wrong
+chain. Now a wrong chain opens the wallet's switch/add-chain prompt automatically, and every
+write switches first. Verified in unit tests and in a dev-server run with a simulated wallet:
+auto-prompt → reject → no re-prompt → manual switch → 4902 → `wallet_addEthereumChain` →
+banner cleared. **Not yet verified with a real extension on production.**
+
 **Working (merged):** connect wallet → onto Arc → acceptance estimate before signing → approve →
 enter → close vintage → claim; portfolio; **testnet/mainnet toggle** (sticky, never inferred from
 the wallet); **WalletConnect** using main Hunch's public project id; **non-dismissible
@@ -79,6 +86,16 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
 
 ## Recent changes — files touched and why
 
+**Wrong-chain fix (PR #15):**
+- `src/lib/wallet/useWallet.ts`: chain comes from `useAccount().chainId`. New `ensureActiveChain()`,
+  `walletChainId`, `canSwitch`, and the pure helpers `chainStatus` and `switchPromptKey`.
+- `src/components/wallet/NetworkBanner.tsx`: auto-opens the switch prompt once per key; the button is disabled when the chain can't be added.
+- `src/components/market/EntryFlow.tsx` (approve, enter, finalizeVintage) and `src/components/claim/ClaimList.tsx`
+  (pull): `await ensureActiveChain()` first, then `writeContract({ …, chainId })`.
+- Tests: `test/wallet-chain.test.tsx` (new, 17 cases). `degraded.test.tsx` now mocks with
+  `importOriginal`; `network-toggle.test.tsx` gained `useAccount.chainId`.
+
+**Earlier (per-network data layer):**
 - `src/lib/network.ts`, `src/lib/network-server.ts`, `src/components/wallet/NetworkSync.tsx` (new).
 - `src/lib/data/index.ts` (per network), `kind.ts` (`dataSourceKinds`), `request-network.ts` (new),
   `live.ts` (`network`, `createClient` injection, `getPositions`, addresses per network).
@@ -121,6 +138,11 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
 
 ## Next steps
 
+0. **Real-wallet check of the wrong-chain fix on production:** put the wallet on a non-Arc chain
+   (e.g. Robinhood Chain), open vpm.playhunch.xyz and connect. Expect an immediate switch/add-Arc
+   prompt. Reject it: the banner stays and nothing reopens. Then click "Approve USDC": it should
+   prompt the switch, never send on the other chain. Also try WalletConnect, whose switch
+   behaviour differs from injected wallets.
 1. After PR #10 merges and a market is opened + its id set in `NEXT_PUBLIC_HUNCH_MARKET_IDS_TESTNET`
    (deploy-ops next steps 1-3): browser-verify the live board, market page and portfolio on the
    production URL, then walk approve → enter → partial → close vintage → claim → void on testnet.

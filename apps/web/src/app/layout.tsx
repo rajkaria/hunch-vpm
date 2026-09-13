@@ -5,8 +5,10 @@ import { SiteFooter } from '@/components/chrome/SiteFooter';
 import { SiteHeader } from '@/components/chrome/SiteHeader';
 import { MainnetNotice } from '@/components/wallet/MainnetNotice';
 import { NetworkBanner } from '@/components/wallet/NetworkBanner';
+import { NetworkSync } from '@/components/wallet/NetworkSync';
 import { WalletProvider } from '@/components/wallet/WalletProvider';
-import { dataSource } from '@/lib/data';
+import { dataSourceFor } from '@/lib/data';
+import { selectedNetwork } from '@/lib/network-server';
 import './globals.css';
 
 /*
@@ -78,7 +80,10 @@ export const viewport: Viewport = {
   initialScale: 1,
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const network = await selectedNetwork();
+  const source = dataSourceFor(network);
+
   return (
     <html lang="en" className={`${archivo.variable} ${inter.variable} ${jetbrains.variable}`}>
       <body className="min-h-dvh bg-ink text-paper antialiased">
@@ -88,15 +93,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           Skip to content
         </a>
-        <WalletProvider>
+        <WalletProvider initialNetwork={network}>
+          <NetworkSync rendered={network} />
           <SiteHeader />
           <main id="main" className="mx-auto w-full max-w-[1180px] px-4 pb-24 pt-6 sm:px-6">
-            {dataSource.kind === 'fixture' ? <FixtureNotice /> : null}
+            {source.kind === 'fixture' ? <FixtureNotice /> : null}
             <MainnetNotice />
             <NetworkBanner />
             {children}
           </main>
-          <SiteFooter />
+          <SiteFooter network={network} />
         </WalletProvider>
       </body>
     </html>
@@ -115,8 +121,8 @@ function FixtureNotice() {
         Sample data
       </span>
       <span className="text-muted">
-        No contracts are deployed yet. Every book here is replayed through the settler&rsquo;s own rules, so the
-        arithmetic is real even though the markets are not.
+        This network&rsquo;s index is not connected, so these markets are a sample. Every book is replayed through
+        the settler&rsquo;s own rules, so the arithmetic is real even though the markets are not.
       </span>
     </div>
   );

@@ -56,6 +56,12 @@ const NETWORKS = {
   },
 };
 
+/**
+ * The web app also names the oracle adapter, so it can say which provider a market's spec reads.
+ * Only the web reads it; the subgraph and the client address the adapter per market.
+ */
+const WEB_ONLY = ["priceOracle"];
+
 const FILES = {
   networks: "subgraph/networks.json",
   manifest: "subgraph/subgraph.yaml",
@@ -114,7 +120,7 @@ function expected(network, { write }) {
   const path = deploymentPath(network);
   if (!existsSync(join(ROOT, path))) {
     const zeros = Object.fromEntries(Object.keys(CONTRACTS).map((key) => [key, { address: ZERO, startBlock: 0 }]));
-    return { deployed: false, contracts: zeros };
+    return { deployed: false, contracts: zeros, oracle: ZERO };
   }
 
   let deployment;
@@ -126,7 +132,7 @@ function expected(network, { write }) {
   if (deployment.chainId !== spec.chainId) {
     throw new WireError(`${path} says chainId ${deployment.chainId}; Arc ${network} is ${spec.chainId}. DO NOT WIRE`);
   }
-  for (const key of Object.keys(CONTRACTS)) {
+  for (const key of [...Object.keys(CONTRACTS), ...WEB_ONLY]) {
     const address = deployment[key];
     if (typeof address !== "string" || !ADDRESS.test(address) || lower(address) === ZERO) {
       throw new WireError(`${path}: ${key} is ${JSON.stringify(address)}, not a deployed address`);
@@ -150,7 +156,12 @@ function expected(network, { write }) {
   const contracts = Object.fromEntries(
     Object.keys(CONTRACTS).map((key) => [key, { address: deployment[key], startBlock: blocks[key] }]),
   );
-  return { deployed: true, contracts, deployment };
+  return { deployed: true, contracts, oracle: deployment.priceOracle, deployment };
+}
+
+/** key -> address, without the start blocks. */
+function addressesOf(contracts) {
+  return Object.fromEntries(Object.entries(contracts).map(([key, { address }]) => [key, address]));
 }
 
 // ------------------------------------------------------------------ the readers
@@ -168,12 +179,12 @@ function tsKeyPattern(key) {
   return new RegExp(`(\\n\\s*${key}: )(UNDEPLOYED|'0x[0-9a-fA-F]{40}'),`);
 }
 
-function readTsAddresses(file, opener) {
+function readTsAddresses(file, opener, keys = Object.keys(CONTRACTS)) {
   const source = read(file);
   const [start, end] = objectBlock(source, opener, file);
   const block = source.slice(start, end);
   return Object.fromEntries(
-    Object.keys(CONTRACTS).map((key) => {
+    keys.map((key) => {
       const match = block.match(tsKeyPattern(key));
       if (match === null) throw new WireError(`${file}: no \`${key}:\` line inside \`${opener}\``);
       return [key, match[2] === "UNDEPLOYED" ? ZERO : match[2].slice(1, -1)];
@@ -181,11 +192,12 @@ function readTsAddresses(file, opener) {
   );
 }
 
-function writeTsAddresses(file, opener, network, contracts, deployed) {
+function writeTsAddresses(file, opener, network, addresses, deployed) {
   const source = read(file);
   const [start, end] = objectBlock(source, opener, file);
   let block = source.slice(start, end);
-  for (const [key, { address }] of Object.entries(contracts)) {
+  for (const [key, address] of Object.entries(addresses)) {
+    if (!tsKeyPattern(key).test(block)) throw new WireError(`${file}: no \`${key}:\` line inside \`${opener}\``);
     const value = deployed ? `'${address}'` : "UNDEPLOYED";
     block = block.replace(tsKeyPattern(key), `$1${value},`);
   }
@@ -241,8 +253,9 @@ function disagreements(network, want) {
   if (networks === undefined) throw new WireError(`${FILES.networks} has no "${spec.graphNetwork}" entry`);
 
   const client = readTsAddresses(FILES.client, spec.clientBlock);
-  const web = readTsAddresses(FILES.web, spec.webBlock);
+  const web = readTsAddresses(FILES.web, spec.webBlock, [...Object.keys(CONTRACTS), ...WEB_ONLY]);
   const manifest = spec.manifest ? readManifest() : null;
+  compare(FILES.web, "priceOracle", web.priceOracle, want.oracle);
 
   for (const [key, name] of Object.entries(CONTRACTS)) {
     const { address, startBlock } = want.contracts[key];
@@ -289,8 +302,14 @@ async function wire(network) {
     networksFile[spec.graphNetwork][name] = { ...want.contracts[key] };
   }
   writeFileSync(join(ROOT, FILES.networks), `${JSON.stringify(networksFile, null, 2)}\n`);
-  writeTsAddresses(FILES.client, spec.clientBlock, network, want.contracts, want.deployed);
-  writeTsAddresses(FILES.web, spec.webBlock, network, want.contracts, want.deployed);
+  writeTsAddresses(FILES.client, spec.clientBlock, network, addressesOf(want.contracts), want.deployed);
+  writeTsAddresses(
+    FILES.web,
+    spec.webBlock,
+    network,
+    { ...addressesOf(want.contracts), priceOracle: want.oracle },
+    want.deployed,
+  );
   if (spec.manifest) writeManifest(want.contracts);
 
   const problems = disagreements(network, want);

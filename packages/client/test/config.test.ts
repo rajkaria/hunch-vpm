@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ARC_USDC, UNDEPLOYED, defaultAddressesFor } from '../src/addresses.js';
 import { arcMainnet, arcTestnet, CAIP2, GRAPH_NETWORK_SLUG } from '../src/chains.js';
@@ -26,8 +27,22 @@ describe('defineConfig', () => {
     expect(config.addresses.usdc).toBe(ARC_USDC);
     expect(config.addresses.identityRegistry).toBe('0x8004A818BFB912233c491871b3d84c89A494BD9e');
     expect(config.addresses.storkOracle).toBe('0xacC0a0cF13571d30B4b8637996F5D6D774d4fd62');
-    // Nothing of ours is deployed yet.
-    expect(config.addresses.vestedParimutuel).toBe(UNDEPLOYED);
+    // Ours are deployed to testnet, and the defaults are the deployment record — not a copy
+    // that can drift from it. `scripts/wire-deployment.mjs --check` holds the same line in CI.
+    const deployment = JSON.parse(
+      readFileSync(new URL('../../../deployments/arc-testnet.json', import.meta.url), 'utf8'),
+    ) as Record<string, string>;
+    expect(config.addresses.vestedParimutuel).toBe(deployment['vestedParimutuel']);
+    expect(config.addresses.classicParimutuel).toBe(deployment['classicParimutuel']);
+    expect(config.addresses.feedResolver).toBe(deployment['feedResolver']);
+    expect(config.addresses.marketFactory).toBe(deployment['marketFactory']);
+  });
+
+  it('holds no mainnet address of ours, because nothing is deployed there', () => {
+    const mainnet = defaultAddressesFor(arcMainnet.id);
+    for (const key of ['vestedParimutuel', 'classicParimutuel', 'feedResolver', 'marketFactory'] as const) {
+      expect(mainnet[key]).toBe(UNDEPLOYED);
+    }
   });
 
   it('builds the gateway URL from a subgraph id and an api key', () => {

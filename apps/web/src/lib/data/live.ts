@@ -21,7 +21,8 @@
  * state they already have to render anyway.
  */
 
-import { ARC_TESTNET_ADDRESSES } from '../chain';
+import { NETWORKS, type ContractAddresses, type NetworkId } from '../chain';
+import { CHAINS } from '../wallet/chains';
 import { formatPrice } from '../units';
 import { formatUtcDate } from '../time';
 import type {
@@ -33,6 +34,7 @@ import type {
   MarketStatus,
   MarketSummary,
   OutcomeView,
+  PositionView,
   ResolutionSpec,
   SettlerKind,
 } from './types';
@@ -107,10 +109,37 @@ interface ClientClaimable {
   index: { block: bigint; hasIndexingErrors: boolean };
 }
 
+interface ClientOwnedPosition {
+  id: string;
+  positionId: bigint;
+  owner: string;
+  outcome: number;
+  offered: bigint;
+  accepted: bigint;
+  refused: bigint;
+  entryAcc: bigint;
+  vintage: bigint | null;
+  finalized: boolean;
+  refundWithdrawn: boolean;
+  claimed: boolean;
+  createdAt: bigint;
+  market: { id: string };
+}
+
+interface ClientWalletPositions {
+  wallet: string;
+  positions: ClientOwnedPosition[];
+  index: { block: bigint; hasIndexingErrors: boolean };
+}
+
 interface ClientSurface {
   marketBook(marketId: string): Promise<ClientMarketBook>;
   claimable(wallet: string): Promise<ClientClaimable>;
+  positions(wallet: string): Promise<ClientWalletPositions>;
 }
+
+/** The part of `@hunch-vpm/client` this source calls, for a test to stand in for. */
+export type LiveClient = ClientSurface;
 
 interface ClientModule {
   createHunchClient(config: Record<string, unknown>): ClientSurface;
@@ -129,6 +158,10 @@ export interface LiveSourceOptions {
   marketIds?: string[];
   /** The connected wallet, when there is one. */
   wallet?: string | null;
+  /** Which Arc the subgraph indexes. Decides the client's chain and the addresses shown. Default testnet. */
+  network?: NetworkId;
+  /** Build the client from its config. Defaults to loading `@hunch-vpm/client`; tests pass a stand-in. */
+  createClient?: (config: Record<string, unknown>) => LiveClient;
 }
 
 /**
@@ -149,18 +182,25 @@ function loadClient(): Promise<ClientModule> {
 export function createLiveSource(options: LiveSourceOptions): DataSource {
   const marketIds = options.marketIds ?? [];
   const wallet = options.wallet ?? null;
+  const network = options.network ?? 'testnet';
+  const addresses = NETWORKS[network].addresses;
 
   const client = async (): Promise<ClientSurface> => {
-    const module = await loadClient();
-    return module.createHunchClient({
+    const config = {
       subgraphUrl: options.subgraphUrl,
+      // The client picks its default addresses — and so every calldata target — by
+      // chain, so it has to be told which Arc this index is for.
+      chain: CHAINS[network],
       ...(options.erc8004SubgraphUrl === undefined ? {} : { erc8004SubgraphUrl: options.erc8004SubgraphUrl }),
-    });
+    };
+    if (options.createClient !== undefined) return options.createClient(config);
+    const module = await loadClient();
+    return module.createHunchClient(config);
   };
 
   const read = async (id: string): Promise<MarketDetail> => {
     const book = await (await client()).marketBook(id);
-    return toMarketDetail(book);
+    return toMarketDetail(book, addresses);
   };
 
   return {
@@ -169,7 +209,7 @@ export function createLiveSource(options: LiveSourceOptions): DataSource {
     async listMarkets(): Promise<MarketSummary[]> {
       const hunch = await client();
       const books = await Promise.all(marketIds.map((id) => hunch.marketBook(id)));
-      return books.map(toMarketDetail);
+      return books.map((book) => toMarketDetail(book, addresses));
     },
 
     async getMarket(id: string): Promise<MarketDetail | null> {
@@ -209,22 +249,28 @@ export function createLiveSource(options: LiveSourceOptions): DataSource {
     },
 
     /**
-     * Positions for one address.
+     * Every position an address holds or has held on this network, newest
+     * first, each with its market read in full.
      *
-     * **Empty here, and that is a stated gap rather than an oversight.**
-     * `toMarketDetail` sets `positions: []` because `@hunch-vpm/client`'s
-     * `marketBook(id)` takes no owner and returns none — there is no
-     * positions-by-owner read in the client at all. Returning [] is the honest
-     * answer; inventing one would mean shipping a subgraph query nothing in
-     * this repo can execute, since neither subgraph is deployed.
-     *
-     * The fix is small and is not a schema change: the subgraph already indexes
-     * Position entities with an owner (that is how `claimable` finds them), so
-     * the client needs a `positions(where: { owner })` read and this method
-     * needs to call it. See .ocean/REPORT.md.
+     * One `positions` read, then one `marketBook` per distinct market: the
+     * portfolio shows each market's status, freeze and outcome labels, which the
+     * position read does not carry priced. A wallet sits in few enough markets
+     * that this is a handful of requests, and a market is read once however many
+     * positions it holds.
      */
-    async getPositions(): Promise<PortfolioEntry[]> {
-      return [];
+    async getPositions(forWallet: string): Promise<PortfolioEntry[]> {
+      const hunch = await client();
+      const held = await hunch.positions(forWallet);
+      const ids = [...new Set(held.positions.map((position) => position.market.id))];
+      const books = await Promise.all(ids.map((id) => hunch.marketBook(id)));
+      const markets = new Map(books.map((book) => [book.marketId, toMarketDetail(book, addresses)]));
+
+      return held.positions.flatMap((position) => {
+        const market = markets.get(position.market.id);
+        // Unreachable through the client, which reads each market by the id its position names.
+        if (market === undefined) return [];
+        return [{ market, position: toPositionView(position) }];
+      });
     },
 
     currentWallet(): string | null {
@@ -235,8 +281,27 @@ export function createLiveSource(options: LiveSourceOptions): DataSource {
 
 // ------------------------------------------------------------------ mapping
 
-function toMarketDetail(book: ClientMarketBook): MarketDetail {
-  const spec = book.spec === null ? null : toSpec(book.spec);
+function toPositionView(position: ClientOwnedPosition): PositionView {
+  return {
+    id: position.id,
+    positionId: position.positionId,
+    owner: position.owner,
+    outcome: position.outcome,
+    offered: position.offered,
+    accepted: position.accepted,
+    refused: position.refused,
+    entryAcc: position.entryAcc,
+    // Stays null on a classic position rather than becoming 0n, which is the seed vintage.
+    vintage: position.vintage,
+    finalized: position.finalized,
+    refundWithdrawn: position.refundWithdrawn,
+    claimed: position.claimed,
+    enteredAt: position.createdAt,
+  };
+}
+
+function toMarketDetail(book: ClientMarketBook, addresses: ContractAddresses): MarketDetail {
+  const spec = book.spec === null ? null : toSpec(book.spec, addresses);
   return {
     id: book.marketId,
     onChainMarketId: book.onChainMarketId,
@@ -254,7 +319,7 @@ function toMarketDetail(book: ClientMarketBook): MarketDetail {
     outcomes: book.books.map((entry) => toOutcome(entry, spec)),
     token: book.token,
     creator: book.settler,
-    resolver: ARC_TESTNET_ADDRESSES.feedResolver,
+    resolver: addresses.feedResolver,
     residueOwner: book.residueOwner,
     residueClaimed: book.residueClaimed,
     residue: book.residue,
@@ -290,11 +355,13 @@ function toOutcome(entry: ClientBookView, spec: ResolutionSpec | null): OutcomeV
   };
 }
 
-function toSpec(spec: ClientResolutionSpec): ResolutionSpec {
+function toSpec(spec: ClientResolutionSpec, addresses: ContractAddresses): ResolutionSpec {
   return {
     specId: spec.specId,
     oracle: spec.oracle,
-    oracleName: spec.oracle.toLowerCase() === ARC_TESTNET_ADDRESSES.storkOracle.toLowerCase()
+    // A spec names the ADAPTER it reads, not Stork's own contract, so that is what
+    // identifies it — the adapter this network's deployment shipped.
+    oracleName: spec.oracle.toLowerCase() === addresses.priceOracle.toLowerCase()
       ? 'Stork, through the IPriceOracle adapter'
       : `Oracle adapter at ${spec.oracle}`,
     feedKey: spec.feedKey,

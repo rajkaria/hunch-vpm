@@ -1,9 +1,11 @@
 import Link from 'next/link';
 
-import { ARC_TESTNET, ARC_USDC } from '@/lib/chain';
+import { ARC_USDC, NETWORKS, type NetworkId } from '@/lib/chain';
 import { WHITEPAPER_URL } from '@/lib/links';
 
-export function SiteFooter() {
+export function SiteFooter({ network }: { network: NetworkId }) {
+  const facts = NETWORKS[network].facts;
+
   return (
     <footer className="border-t border-edge bg-raised">
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-4 py-10 sm:px-6 md:flex-row md:items-start md:justify-between">
@@ -55,16 +57,19 @@ export function SiteFooter() {
                   The Vested Parimutuel
                 </a>
               </li>
-              <li>
-                <a
-                  href={ARC_TESTNET.explorerUrl}
-                  className="text-muted hover:text-paper"
-                  target="_blank"
-                  rel="noreferrer noopener"
-                >
-                  Arcscan
-                </a>
-              </li>
+              {/* No link to an explorer this repo has not verified: mainnet's is unpublished. */}
+              {facts.explorerUrl === '' ? null : (
+                <li>
+                  <a
+                    href={facts.explorerUrl}
+                    className="text-muted hover:text-paper"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                  >
+                    Arcscan
+                  </a>
+                </li>
+              )}
             </ul>
           </nav>
 
@@ -73,11 +78,11 @@ export function SiteFooter() {
             <dl className="space-y-2 text-muted">
               <div className="flex gap-2">
                 <dt className="sr-only">Chain</dt>
-                <dd className="num">{ARC_TESTNET.name}</dd>
+                <dd className="num">{facts.name}</dd>
               </div>
               <div className="flex gap-2">
                 <dt className="sr-only">Chain id</dt>
-                <dd className="num">{ARC_TESTNET.id}</dd>
+                <dd className="num">{facts.id}</dd>
               </div>
               <div className="flex gap-2">
                 <dt className="sr-only">Settlement asset</dt>

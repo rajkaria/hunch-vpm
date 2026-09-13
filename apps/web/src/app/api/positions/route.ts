@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 
-import { dataSource } from '@/lib/data';
+import { dataSourceFor } from '@/lib/data';
+import { requestNetwork } from '@/lib/data/request-network';
 
 /*
  * Positions for one address. Same shape of decision as /api/claimable: the
  * browser knows the address, the server holds the endpoint and its key, and
- * every bigint crosses as a decimal string.
+ * every bigint crosses as a decimal string. `network` picks the Arc.
  */
 
 export const dynamic = 'force-dynamic';
@@ -19,11 +20,18 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'A 20-byte hex address is required.' }, { status: 400 });
   }
 
+  const network = requestNetwork(request);
+  if (network === null) {
+    return NextResponse.json({ error: 'network must be testnet or mainnet.' }, { status: 400 });
+  }
+
   try {
-    const entries = await dataSource.getPositions(address);
+    const source = dataSourceFor(network);
+    const entries = await source.getPositions(address);
     return NextResponse.json(
       {
-        source: dataSource.kind,
+        source: source.kind,
+        network,
         entries: entries.map((entry) => ({
           market: {
             id: entry.market.id,

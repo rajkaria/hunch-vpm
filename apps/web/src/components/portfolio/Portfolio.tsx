@@ -5,6 +5,7 @@ import Link from 'next/link';
 
 import { Amount, Badge, EmptyState, Panel, PanelHeader, Stat } from '@/components/ui/primitives';
 import { formatUtcDate } from '@/lib/time';
+import { useNetwork } from '@/lib/wallet/network';
 import { truncateAddress, useWallet } from '@/lib/wallet/useWallet';
 
 interface Entry {
@@ -46,12 +47,14 @@ const TONE: Record<'up' | 'down' | 'neutral', string> = {
  */
 export function Portfolio() {
   const wallet = useWallet();
+  const { network, hydrated } = useNetwork();
 
   const positions = useQuery({
-    queryKey: ['positions', wallet.address],
-    enabled: wallet.address !== null,
+    // Keyed by network: the same address holds different things on each Arc.
+    queryKey: ['positions', network, wallet.address],
+    enabled: wallet.address !== null && hydrated,
     queryFn: async (): Promise<{ source: string; entries: Entry[] }> => {
-      const response = await fetch(`/api/positions?address=${wallet.address ?? ''}`);
+      const response = await fetch(`/api/positions?network=${network}&address=${wallet.address ?? ''}`);
       if (!response.ok) throw new Error('The index could not be reached.');
       return response.json();
     },
@@ -66,7 +69,7 @@ export function Portfolio() {
     );
   }
 
-  if (positions.isLoading) {
+  if (positions.isPending) {
     return <EmptyState title="Reading your positions…">For {truncateAddress(wallet.address)}.</EmptyState>;
   }
 

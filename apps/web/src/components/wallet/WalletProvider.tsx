@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { WagmiProvider } from 'wagmi';
 
+import type { NetworkId } from '@/lib/chain';
 import { walletConfig } from '@/lib/wallet/config';
 import { NetworkProvider } from '@/lib/wallet/network';
 
@@ -12,10 +13,16 @@ import { NetworkProvider } from '@/lib/wallet/network';
  *
  * Everything under it is still server-rendered; this provider only gives the
  * client components that need an account somewhere to read it from. The pages
- * themselves stay static — the board, the market pages and the claim page are
- * prerendered, and the wallet is a client island on top of them.
+ * render on the server for the network in the viewer's cookie, and the wallet is
+ * a client island on top of them.
  */
-export function WalletProvider({ children }: { children: React.ReactNode }) {
+export function WalletProvider({
+  children,
+  initialNetwork,
+}: {
+  children: React.ReactNode;
+  initialNetwork?: NetworkId | undefined;
+}) {
   // One QueryClient per browser session. Created in state rather than at module
   // scope so a server render never shares a cache between two users.
   const [queryClient] = useState(
@@ -38,7 +45,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queryClient}>
         {/* Network selection sits inside wagmi so `useWallet` can compare the
             viewer's choice against the wallet's actual chain. */}
-        <NetworkProvider>{children}</NetworkProvider>
+        <NetworkProvider initialNetwork={initialNetwork}>{children}</NetworkProvider>
       </QueryClientProvider>
     </WagmiProvider>
   );

@@ -33,6 +33,7 @@ vi.mock('@/lib/wallet/useWallet', () => ({
 import { NetworkBanner } from '@/components/wallet/NetworkBanner';
 import { PositionGate } from '@/components/market/PositionGate';
 import { buildFixtures } from '@/lib/data/fixtures';
+import { NetworkProvider } from '@/lib/wallet/network';
 
 const market = buildFixtures(1_789_000_000n).markets[0]!;
 
@@ -66,13 +67,21 @@ describe('PositionGate', () => {
     // It used to render the fixture wallet's position to every visitor and
     // label it "Your position". That is the one thing it must never do.
     set({ address: null, wrongChain: false });
-    render(<PositionGate market={market} />);
+    render(
+      <NetworkProvider>
+        <PositionGate market={market} />
+      </NetworkProvider>,
+    );
     expect(screen.getByText('Connect a wallet to see your position.')).toBeTruthy();
   });
 
   it('says whose position it is showing when connected on fixtures', () => {
     set({ address: '0xaaaa000000000000000000000000000000001111', wrongChain: false, ready: true });
-    render(<PositionGate market={market} />);
+    render(
+      <NetworkProvider>
+        <PositionGate market={market} />
+      </NetworkProvider>,
+    );
     expect(screen.getByText(/belongs to the sample wallet, not to you/)).toBeTruthy();
   });
 });

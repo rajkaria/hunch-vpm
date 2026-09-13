@@ -12,16 +12,25 @@ vi.mock('wagmi', () => ({
   useSwitchChain: () => ({ switchChain: () => {}, isPending: false, error: null }),
 }));
 
+const router = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
+
 import { ARC_MAINNET, ARC_MAINNET_ADDRESSES, ARC_TESTNET, NETWORKS, isDeployed, networkForChainId } from '@/lib/chain';
 import { MainnetNotice } from '@/components/wallet/MainnetNotice';
+import { NetworkSync } from '@/components/wallet/NetworkSync';
 import { NetworkToggle } from '@/components/wallet/NetworkToggle';
+import { SiteFooter } from '@/components/chrome/SiteFooter';
 import { NetworkProvider } from '@/lib/wallet/network';
 import { CHAINS, DEFAULT_NETWORK } from '@/lib/wallet/chains';
 import { WALLETCONNECT_PROJECT_ID } from '@/lib/wallet/config';
 
 const wrap = (ui: React.ReactNode) => render(<NetworkProvider>{ui}</NetworkProvider>);
 
-beforeEach(() => window.localStorage.clear());
+beforeEach(() => {
+  window.localStorage.clear();
+  document.cookie = 'hunch-vpm.network=; path=/; max-age=0';
+  router.refresh.mockClear();
+});
 
 describe('the network registry', () => {
   it('carries both Arcs, at the right chain ids', () => {
@@ -115,5 +124,69 @@ describe('MainnetNotice', () => {
     const { container } = wrap(<MainnetNotice />);
     expect(container.querySelector('button')).toBeNull();
     expect(container.querySelector('[role="alert"]')).toBeTruthy();
+  });
+});
+
+describe('the server’s copy of the choice', () => {
+  it('writes the cookie the server renders from when the toggle is flipped', () => {
+    wrap(<NetworkToggle />);
+    fireEvent.click(screen.getByRole('button', { name: /Main|^Arc$/ }));
+    expect(document.cookie).toMatch(/hunch-vpm\.network=mainnet/);
+  });
+
+  it('carries a choice the browser remembers over to the server on the first visit', () => {
+    window.localStorage.setItem('hunch-vpm.network', 'mainnet');
+    wrap(<NetworkToggle />);
+    expect(document.cookie).toMatch(/hunch-vpm\.network=mainnet/);
+  });
+
+  it('starts on the network the server rendered, so the first paint already matches', () => {
+    render(
+      <NetworkProvider initialNetwork="mainnet">
+        <NetworkToggle />
+      </NetworkProvider>,
+    );
+    expect(screen.getByRole('button', { name: /Main|^Arc$/ }).getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+describe('NetworkSync', () => {
+  it('re-renders the server half when it rendered another network', () => {
+    window.localStorage.setItem('hunch-vpm.network', 'mainnet');
+    wrap(<NetworkSync rendered="testnet" />);
+    expect(router.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing when the server already rendered the selected network', () => {
+    wrap(<NetworkSync rendered="testnet" />);
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it('refreshes when the viewer switches', () => {
+    wrap(
+      <>
+        <NetworkToggle />
+        <NetworkSync rendered="testnet" />
+      </>,
+    );
+    expect(router.refresh).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /Main|^Arc$/ }));
+    expect(router.refresh).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('SiteFooter', () => {
+  it('names the network the page was rendered for', () => {
+    const { container } = render(<SiteFooter network="mainnet" />);
+    expect(container.textContent).toContain('5042');
+    expect(container.textContent).not.toContain('5042002');
+  });
+
+  it('links an explorer only where one is verified', () => {
+    const testnet = render(<SiteFooter network="testnet" />);
+    expect(testnet.getByText('Arcscan').closest('a')?.getAttribute('href')).toBe('https://testnet.arcscan.app');
+    cleanup();
+    const mainnet = render(<SiteFooter network="mainnet" />);
+    expect(mainnet.queryByText('Arcscan')).toBeNull();
   });
 });

@@ -58,6 +58,8 @@ export interface ContractAddresses {
   classicParimutuel: string;
   marketFactory: string;
   feedResolver: string;
+  /** The IPriceOracle adapter this deployment's resolver reads — StorkOracle on Arc testnet. */
+  priceOracle: string;
   usdc: string;
   identityRegistry: string;
   reputationRegistry: string;
@@ -71,6 +73,7 @@ export const ARC_TESTNET_ADDRESSES: ContractAddresses = {
   classicParimutuel: '0x21603b2176aB8495A81fF3B3bE853C64f3860D57',
   marketFactory: '0x0380C6FC136AE64432558e407706a5C7E7652f07',
   feedResolver: '0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3',
+  priceOracle: '0x5938F12246642aE8E6A47Efbaa72a454EafD4287',
   usdc: ARC_USDC,
   // ERC-8004 registries are live on Arc testnet and are not ours to deploy.
   identityRegistry: '0x8004A818BFB912233c491871b3d84c89A494BD9e',
@@ -93,6 +96,7 @@ export const ARC_MAINNET_ADDRESSES: ContractAddresses = {
   classicParimutuel: UNDEPLOYED,
   marketFactory: UNDEPLOYED,
   feedResolver: UNDEPLOYED,
+  priceOracle: UNDEPLOYED,
   // USDC is at the same predeploy address on both Arc chains: it is the native
   // gas token exposed through an ERC-20 interface, not a deployed token.
   usdc: ARC_USDC,

@@ -2,16 +2,16 @@ import Link from 'next/link';
 
 import { MarketCard } from '@/components/market/MarketCard';
 import { Amount, Badge, Button, EmptyState, Stat } from '@/components/ui/primitives';
-import { dataSource } from '@/lib/data';
+import { dataSourceFor } from '@/lib/data';
+import { selectedNetwork } from '@/lib/network-server';
 import type { MarketSummary } from '@/lib/data/types';
 
-// The board is rebuilt on a short cycle rather than on every request: the
-// numbers move when a block lands, not when someone refreshes, and the
-// countdown on each card is a client clock reading an absolute deadline.
-export const revalidate = 30;
+// Rendered per request, because which Arc the board lists is the viewer's
+// choice, carried in a cookie. The countdown on each card is still a client
+// clock reading an absolute deadline.
 
 export default async function MarketsPage() {
-  const markets = await dataSource.listMarkets();
+  const markets = await dataSourceFor(await selectedNetwork()).listMarkets();
   const open = markets.filter((market) => market.status === 'Open' && !market.frozen);
   const awaiting = markets.filter((market) => market.status === 'Open' && market.frozen);
   const settled = markets.filter((market) => market.status !== 'Open');

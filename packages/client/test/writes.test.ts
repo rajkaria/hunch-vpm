@@ -1,5 +1,6 @@
 import { decodeFunctionData } from 'viem';
 import { describe, expect, it } from 'vitest';
+import { arcMainnet } from '../src/chains.js';
 import { ARC_USDC } from '../src/addresses.js';
 import { createHunchClient } from '../src/client.js';
 import { KAPPA_UNBOUNDED } from '../src/units.js';
@@ -145,7 +146,8 @@ describe('approveCalldata', () => {
 
 describe('placeholder addresses', () => {
   it('refuse to build calldata rather than sending to the zero address', () => {
-    const undeployed = createHunchClient({ subgraphUrl: 'https://subgraph.invalid/x' });
+    // Mainnet: the one network where every one of ours is still the zero placeholder.
+    const undeployed = createHunchClient({ subgraphUrl: 'https://subgraph.invalid/x', chain: arcMainnet });
     expect(() => undeployed.enterCalldata({ marketId: 0n, outcome: 0, amount: 1n })).toThrow(
       /settler is not deployed yet/,
     );

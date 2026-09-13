@@ -1,11 +1,14 @@
-import { dataSource } from '@/lib/data';
+import type { NetworkId } from '@/lib/chain';
+import { dataSourceFor } from '@/lib/data';
 
 /**
- * Just the source's kind, importable from client code.
+ * Each network's source kind, importable from client code.
  *
- * `@/lib/data` pulls in the live source and its transport, which must not be
- * bundled for the browser. This re-export is a single string literal Next can
- * inline, so a client component can say whether it is looking at fixtures
- * without dragging the data layer across the boundary.
+ * A client component that has to say whether it is looking at fixtures reads
+ * this with the network from `useNetwork()`: one network can be live while the
+ * other still serves the sample dataset.
  */
-export const dataSourceKind: 'fixture' | 'live' = dataSource.kind;
+export const dataSourceKinds: Record<NetworkId, 'fixture' | 'live'> = {
+  testnet: dataSourceFor('testnet').kind,
+  mainnet: dataSourceFor('mainnet').kind,
+};

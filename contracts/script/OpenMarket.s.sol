@@ -171,19 +171,19 @@ contract OpenMarket is Script {
         plan.approveCalldata = abi.encodeCall(IERC20Spend.approve, (address(p.factory), p.seedPerSide * 2));
         plan.openCalldata = abi.encodeCall(MarketFactory.open, (terms, feed));
         plan.marketId = IParimutuelSettler(p.settler).marketCount();
-        plan.specId = p.factory.resolver()
-            .specIdOf(
-                FeedResolver.Spec({
-                    settler: p.settler,
-                    marketId: plan.marketId,
-                    oracle: p.oracle,
-                    feedKey: p.feedKey,
-                    strike: p.strike8,
-                    direction: p.direction,
-                    resolutionTime: p.resolutionTime,
-                    maxStaleness: p.maxStaleness
-                })
-            );
+        FeedResolver resolver = p.factory.resolver();
+        plan.specId = resolver.specIdOf(
+            FeedResolver.Spec({
+                settler: p.settler,
+                marketId: plan.marketId,
+                oracle: p.oracle,
+                feedKey: p.feedKey,
+                strike: p.strike8,
+                direction: p.direction,
+                resolutionTime: p.resolutionTime,
+                maxStaleness: p.maxStaleness
+            })
+        );
     }
 
     function _read(Params memory p) internal view returns (int256, uint256) {

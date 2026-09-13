@@ -55,6 +55,7 @@ claimed, paged by id, sorted newest first) → `live.ts:getPositions` = one posi
 **Broken / absent:**
 - **Pages are now dynamic** (cookie) — no ISR on board/market/agents. Fine on Fluid compute; revisit if load matters.
 - Client components with no network prop (`AddressLink` default) still link testnet's explorer.
+- **`next dev` quirk:** after a toggle, `router.refresh()` can leave the market page's own segment stale while the layout updates. `next start` refreshes it correctly — browser-verified testnet → mainnet → testnet on the production build (contracts panel, footer, cookie, no console errors). Verify network switching on a build, not dev.
 - **Mainnet cannot add-to-wallet** until `NEXT_PUBLIC_ARC_RPC_URL`; explorer links suppressed until `NEXT_PUBLIC_ARC_EXPLORER_URL`.
 - `ARC_MAINNET_ADDRESSES` all placeholders. No per-market OG image; no rate limiting on the API routes.
 

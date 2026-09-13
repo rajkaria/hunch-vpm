@@ -29,6 +29,19 @@ step "Tooling"
 command -v forge >/dev/null && ok "forge $(forge --version | head -1)" || bad "forge is not on PATH"
 command -v cast  >/dev/null && ok "cast present"                        || bad "cast is not on PATH"
 
+step "The build"
+# A fresh `git worktree` or a clone without --recurse-submodules has an EMPTY
+# contracts/lib/forge-std, and Deploy.s.sol imports forge-std/Script.sol. That
+# failed a real deploy at compile time — harmless, but only because it failed
+# before signing. Compile here, where failing costs nothing.
+if [ ! -f contracts/lib/forge-std/src/Script.sol ]; then
+  bad "contracts/lib/forge-std is empty. Run: git submodule update --init --recursive"
+elif forge build --root contracts >/dev/null 2>&1; then
+  ok "contracts compile (forge build)"
+else
+  bad "forge build --root contracts fails. Run it to see why; nothing deploys until it passes"
+fi
+
 step "The signer"
 if [ -z "$ACCOUNT" ]; then
   bad "no keystore account given. Usage: preflight-deploy.sh <keystore-account> [testnet|mainnet]"
@@ -156,6 +169,9 @@ PASSWORD_ARG=""
 [ -n "$PASSWORD_FILE" ] && PASSWORD_ARG=" --password-file $PASSWORD_FILE"
 printf '\n\033[32mREADY.\033[0m The deploy command:\n\n'
 cat <<CMD
+  # pipefail: without it \`| tee\` exits 0 even when forge fails, and a failed
+  # deploy reads as a finished one.
+  set -o pipefail
   ORACLE_KIND=${KIND} \\
   forge script contracts/script/Deploy.s.sol \\
     --root contracts --rpc-url ${ALIAS} --account ${ACCOUNT}${PASSWORD_ARG} --broadcast${VERIFY_FLAGS} \\

@@ -2,9 +2,9 @@
 
 The web surface for the vested parimutuel on Arc.
 
-**It is not deployed.** There is no hosted URL — `vpm.playhunch.xyz` is the hostname reserved
-for it below and it does not resolve (NXDOMAIN; the apex `playhunch.xyz` is a different,
-existing product). Run it locally with `pnpm --filter @hunch-vpm/web dev`.
+**Live at <https://vpm.playhunch.xyz>** (Vercel project `hunch-vpm`; a push to `main` redeploys).
+The apex `playhunch.xyz` is the parent product and is not served from here. Run it locally with
+`pnpm --filter @hunch-vpm/web dev`.
 
 Next.js App Router, TypeScript, Tailwind v4, Vitest. Every page renders from a data module
 with a fixture implementation as the default, so the whole surface works with no network, no
@@ -156,8 +156,8 @@ extends `../../tsconfig.base.json`.
 **Environment variables.** None are required: a network with no subgraph URL serves the fixture
 dataset and every page renders. Add a network's variables above to point it at a live subgraph.
 
-**Custom domain.** None of this has been done — the record below does not exist yet. When you
-deploy: add `vpm.playhunch.xyz` under Project → Settings → Domains, then create a `CNAME` on
+**Custom domain.** Done: `vpm.playhunch.xyz` resolves to Vercel and serves production. For a
+rebuild from scratch, add it under Project → Settings → Domains and create a `CNAME` on
 `playhunch.xyz`:
 
 ```

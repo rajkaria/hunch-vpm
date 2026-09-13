@@ -13,7 +13,7 @@ operator has. **[either]** is mechanical once its blocker clears.
 
 - [x] `pnpm verify` green — 1,190 tests across contracts, workspace and Substreams
 - [x] CI green on all three jobs (`contracts`, `workspace`, `substreams`)
-- [x] Market surface deployed to production — <https://hunch-vpm.vercel.app>
+- [x] Market surface deployed to production — <https://vpm.playhunch.xyz>
 - [x] Vercel project connected to the repository; a push to `main` redeploys
 - [x] Submission write-up drafted
 - [x] **The venue is built.** Connect Wallet (no Privy), Arc add/switch, approve + enter with
@@ -46,7 +46,7 @@ Terminal width matters: the decision table is **105 columns**, and the closing n
 summary is **187**. Pick which one you would rather not wrap. Load `/`,
 `/m/eth-3000-sep30` and `/agents` once before recording so the first beat is not a compile.
 
-Record against <https://hunch-vpm.vercel.app> rather than localhost if you would rather show a
+Record against <https://vpm.playhunch.xyz> rather than localhost if you would rather show a
 live URL — the data is identical.
 
 **Done when:** a ≤4-minute video exists and is uploaded wherever the submission form wants it.
@@ -227,6 +227,9 @@ transaction hashes.
 
 ### 10. `vpm.playhunch.xyz` **[you]**
 
+**Done.** The domain resolves to Vercel and serves production (checked 2026-09-13). Every link in the
+repo now points at it.
+
 Add the domain under Project → Settings → Domains, then create the record on `playhunch.xyz`:
 
 ```
@@ -269,7 +272,7 @@ make deploy VESTED=0x... CLASSIC=0x... FACTORY=0x... RESOLVER=0x...
 - [ ] Demo video uploaded
 - [ ] Prize tracks named in [`SUBMISSION.md`](SUBMISSION.md)
 - [ ] `pnpm verify` green on `main`, CI green on `main`
-- [ ] <https://hunch-vpm.vercel.app> loads, and its banner matches reality — fixtures if you
+- [ ] <https://vpm.playhunch.xyz> loads, and its banner matches reality — fixtures if you
       stopped at step 2, live if you finished step 8
 - [ ] Every "not done" in [`SUBMISSION.md`](SUBMISSION.md) still true, or struck
 - [ ] No secret in the repository. `.gitignore` excludes `.env` and `.env.*` while keeping

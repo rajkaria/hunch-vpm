@@ -47,10 +47,10 @@ pnpm --filter @hunch-vpm/web dev             # the market surface, on fixtures, 
 node agent/dist/cli/main.js research         # the demo agent, dry-run
 ```
 
-The market surface is live at **<https://hunch-vpm.vercel.app>** — serving the fixture
-dataset, because no contract is deployed yet. Every manifest and address file carries an
-explicit zero-address placeholder, and the agent defaults to dry-run. The site says so on
-every page rather than implying a book that does not exist.
+The market surface is live at **<https://vpm.playhunch.xyz>**. On Arc testnet it reads real
+markets through the published subgraph; the settlement layer is deployed and verified
+(`deployments/arc-testnet.json`). Arc mainnet is not deployed yet, so its side of the network
+toggle serves the fixture dataset and says so. The agent defaults to dry-run.
 [`docs/RUNBOOK.md`](docs/RUNBOOK.md) is the deploy path for the rest.
 
 ## What is in here

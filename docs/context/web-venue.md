@@ -21,7 +21,7 @@ claims, portfolio, design system.
 
 ## Current state — what's working, deployed, broken
 
-**Live:** <https://hunch-vpm.vercel.app> (Vercel `hunch-vpm`, auto-deploys from `main`). Merged
+**Live:** <https://vpm.playhunch.xyz> (Vercel `hunch-vpm`, auto-deploys from `main`). Merged
 so far: the full venue plus the runtime network toggle (PR #8).
 
 **Working (merged):** connect wallet → onto Arc → acceptance estimate before signing → approve →

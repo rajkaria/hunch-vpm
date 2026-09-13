@@ -4,7 +4,7 @@ How to run this repo locally, put it on Arc testnet, index it, serve it, open a 
 resolve one, and handle the feed going quiet. Every command here exists in the repo or in a
 tool the repo already depends on.
 
-**Deployed today:** the web surface at <https://hunch-vpm.vercel.app>, and the settlement layer on
+**Deployed today:** the web surface at <https://vpm.playhunch.xyz>, and the settlement layer on
 **Arc testnet** (2026-09-13, `deployments/arc-testnet.json`, all five verified on Arcscan):
 
 | Contract | Address |
@@ -15,8 +15,9 @@ tool the repo already depends on.
 | FeedResolver | [`0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3`](https://testnet.arcscan.app/address/0xd9Fde9112a5dE78075fae334D8A9a67fDcAee3f3) |
 | MarketFactory | [`0x0380C6FC136AE64432558e407706a5C7E7652f07`](https://testnet.arcscan.app/address/0x0380C6FC136AE64432558e407706a5C7E7652f07) |
 
-**Not deployed:** anything on Arc mainnet (every mainnet address is the zero placeholder), and
-neither subgraph is published to Studio yet — so the surface still serves the fixture dataset.
+Both testnet subgraphs are live in Studio, and the surface's testnet side reads them. **Not
+deployed:** anything on Arc mainnet. Every mainnet address is the zero placeholder, so the
+mainnet side of the toggle serves the fixture dataset and says so.
 
 - [What you need installed](#what-you-need-installed)
 - [Local development from a clean clone](#local-development-from-a-clean-clone)
@@ -410,7 +411,7 @@ npx graph deploy --node http://localhost:8020/ --ipfs http://localhost:5001 hunc
 ## Deploying the web surface
 
 **This is done.** The project is `hunch-vpm` on Vercel, connected to this GitHub repository,
-and production is <https://hunch-vpm.vercel.app>. A push to `main` redeploys it — `vercel.json`
+and production is <https://vpm.playhunch.xyz>. A push to `main` redeploys it — `vercel.json`
 at the repository root carries the whole build configuration (`git.deploymentEnabled.main`),
 so the settings below are already in effect and are recorded here for a rebuild from scratch.
 
@@ -463,11 +464,12 @@ does not belong in any of the subgraph variables.
 
 ### Domain
 
-**Not done.** The surface answers on `hunch-vpm.vercel.app`; `vpm.playhunch.xyz` is the name
-reserved for it, not a name that resolves — it answers NXDOMAIN today. The apex
-`playhunch.xyz` does resolve, because it is the parent product. To move it over: add
-`vpm.playhunch.xyz` under Project → Settings → Domains,
-then create the record on `playhunch.xyz`:
+**Done.** Production is <https://vpm.playhunch.xyz>; it resolves to Vercel and serves the live
+board (checked 2026-09-13). `hunch-vpm.vercel.app` still answers as Vercel's default alias, but
+every link in this repo uses the domain. (`vercel link` is unrelated to the domain: it only ties a
+local checkout to the Vercel project so `vercel env` can read and write variables.) For a rebuild
+from scratch: add `vpm.playhunch.xyz` under Project → Settings → Domains, then create the record
+on `playhunch.xyz`:
 
 ```
 vpm    CNAME    cname.vercel-dns.com.

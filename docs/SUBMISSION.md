@@ -5,7 +5,7 @@ claims live here; the operator steps that have to happen before submitting are i
 [`SUBMISSION-CHECKLIST.md`](SUBMISSION-CHECKLIST.md).
 
 - Repository: <https://github.com/rajkaria/hunch-vpm>
-- Live surface: <https://hunch-vpm.vercel.app>
+- Live surface: <https://vpm.playhunch.xyz>
 - Mechanism paper: [*The Vested Parimutuel*](https://www.playhunch.xyz/vpm-whitepaper)
 - Parent product: [Hunch](https://www.playhunch.xyz)
 
@@ -154,7 +154,7 @@ are separate states throughout, since arriving connected-but-elsewhere is the li
 
 ## What is live right now
 
-**<https://hunch-vpm.vercel.app>** — the market surface, in production, public.
+**<https://vpm.playhunch.xyz>** — the market surface, in production, public.
 
 The settlement layer is **deployed to Arc testnet** and every contract is verified on Arcscan —
 VestedParimutuel `0xC743…2Eec`, ClassicParimutuel `0x2160…0D57`, FeedResolver `0xd9Fd…e3f3`,
@@ -208,8 +208,6 @@ A submission that hides this is worse than one that says it.
 6. **Selfie Check is not implemented.** The AgentKit verifier is wired and tested against
    fixtures; the canonical AgentBook address is a placeholder, and the viem-backed verifier
    refuses to start when handed it rather than pretending.
-7. **`vpm.playhunch.xyz` does not resolve.** It is the name reserved for this surface, not a
-   name that answers. The apex `playhunch.xyz` resolves because it is the parent product.
 
 ## Provenance
 

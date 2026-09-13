@@ -48,8 +48,8 @@ function build() {
             metadata: {
               name: 'Hunch VPM',
               description: 'The vested parimutuel, on Arc.',
-              url: 'https://hunch-vpm.vercel.app',
-              icons: ['https://hunch-vpm.vercel.app/icon-192.png'],
+              url: 'https://vpm.playhunch.xyz',
+              icons: ['https://vpm.playhunch.xyz/icon-192.png'],
             },
           }),
         ]

@@ -55,8 +55,11 @@ Sepolia, and encodes one report. Nothing has been relayed, so `read()` still rev
 **If access is not granted and deployed before 2026-09-15 16:00 UTC, the BTC market cannot resolve;**
 it becomes voidable at 2026-09-18 16:00 UTC and refunds every position.
 
-**Keeper:** `keeper.yml` is now a testnet + mainnet matrix (this branch). `KEEPER_PRIVATE_KEY` is
-**not set** (`gh secret list` is empty), so it is a dry run. The last manual run reported `2 checked · 0 actionable ·
+**Keeper:** `keeper.yml` is now a testnet + mainnet matrix (this branch). **`KEEPER_PRIVATE_KEY` is
+set (10:43 UTC)** for keeper address **`0x652EA9d40724A35e7FAA323e9b5053b6fbf1611a`**. The key was
+generated and piped straight into `gh secret set`: it never appeared in the transcript, and no
+other copy exists. If it is ever needed, generate a new one. The address needs ~1 testnet USDC
+(faucet.circle.com → Arc Testnet) before a live `resolve` can pay gas. The last manual run reported `2 checked · 0 actionable ·
 0 failed · dry run`. **The schedule has never fired**: zero `schedule`-event runs repo-wide in the
 two hours after merge. Changing the workflow file on `main` re-registers it; check after merge.
 
@@ -147,8 +150,8 @@ RPC, explorer or ERC-8004 registry addresses are published. Everything on our si
 2. **Once access is granted:** from `cre/`, `cre workflow deploy price-relay --target
    production-settings` → `setExpectedWorkflowId` (and/or `setExpectedAuthor`) with `--account
    arc-deployer` → `cast call … read(bytes32)` shows a price / `PriceRelayed` log → `lock()`.
-3. **Operator (keeper):** `cast wallet new`, fund ~1 testnet USDC, `gh secret set KEEPER_PRIVATE_KEY`.
-   Merge this branch, then confirm `gh run list --workflow keeper.yml --event schedule` is non-empty and
+3. **Keeper:** the secret is set. Fund `0x652EA9d40724A35e7FAA323e9b5053b6fbf1611a` with testnet USDC,
+   merge this branch, then confirm `gh run list --workflow keeper.yml --event schedule` is non-empty and
    `settle (testnet)` says `live`.
 4. Walk a real wallet stake on production (approve → enter → claim) — needs a human wallet.
 5. Re-check `erc-8004-arc-testnet` `_meta.block` against head (`cast block-number --rpc-url

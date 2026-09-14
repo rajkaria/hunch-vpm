@@ -57,7 +57,7 @@ export const CANONICAL_AGENT_BOOK: Address = PLACEHOLDER_ADDRESS;
  * The slice of AgentBook this package reads.
  *
  * This shape is inferred from what registration has to store, not copied from a
- * published artifact — see docs/feedback/agentkit.md. If the canonical registry's
+ * published artifact. If the canonical registry's
  * accessor differs, do not patch this constant: implement {@link AgentBookRegistry}
  * against the real contract. That is a ten-line function and it keeps the mismatch
  * visible instead of buried in an ABI.

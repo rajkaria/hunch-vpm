@@ -86,8 +86,7 @@ export type { FormatOptions } from './units.js';
 
 // The Arc settlement rail: the four agent verbs (research, quote, positions,
 // trade) over the reads and writes above, for a product that already has an
-// agent API and wants Arc markets behind it unchanged. See
-// `docs/integration/hunch-arc-rail.md`.
+// agent API and wants Arc markets behind it unchanged.
 export { createArcRail } from './rail/createArcRail.js';
 export type { ArcRail, ArcRailConfig } from './rail/createArcRail.js';
 export { ARC_RAIL, arcRailCapabilities, custodialRailCapabilities } from './rail/capabilities.js';

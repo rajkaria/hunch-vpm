@@ -7,9 +7,7 @@ A prediction market that pays you for the risk you carried, not for the second y
   <a href="https://vpm.playhunch.xyz">Live venue</a> ·
   <a href="https://www.playhunch.xyz/vpm-whitepaper">The whitepaper</a> ·
   <a href="https://testnet.arcscan.app/address/0xC743940C75619f65F6178b7e49c0C3A0bE012Eec">Settler on Arcscan</a> ·
-  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
-  <a href="docs/RUNBOOK.md">Runbook</a> ·
-  <a href="docs/DEMO.md">Demo script</a>
+  <a href="docs/ARCHITECTURE.md">Architecture</a>
 </p>
 
 <p align="center">
@@ -562,8 +560,8 @@ that API already speaks, `research`, `quote`, `positions`, `trade`, sit behind a
 interface the Postgres implementation can also satisfy. Two behaviours differ and the types make
 them impossible to miss: `quote` answers with the acceptance rule rather than a price, and
 `trade` returns a union whose Arc arm is literally tagged `'unsigned-calldata'`, so a caller
-cannot mistake it for a fill. [`docs/integration/hunch-arc-rail.md`](docs/integration/hunch-arc-rail.md)
-is the migration guide.
+cannot mistake it for a fill. The adapter and its capability types are in
+[`packages/client/src/rail/`](packages/client/src/rail).
 
 **[`packages/mcp/`](packages/mcp), `@hunch-vpm/mcp`.** Three read-only tools over stdio, so any
 agent that speaks MCP can use the venue without this SDK:
@@ -624,9 +622,6 @@ by the same rule. It is slower and smaller. `effectiveAcceptance` models both ha
 happens to an offer, the tier cap and then the settler's pro-rata rationing, and gets the
 rationing right: the settler does **not** take `min(c, H)`, it cuts every entry in a vintage by
 `⌊c · H_w / D_w⌋` over all opposing books, and that is what the function computes.
-
-[`docs/feedback/agentkit.md`](docs/feedback/agentkit.md) is the integration diary, including the
-chain-model mistake the first implementation made and the docs page that would have prevented it.
 
 ### The venue
 
@@ -857,8 +852,10 @@ optional and none of them is a secret.
 For an MCP host, point it at `packages/mcp/dist/index.js` with the same two URLs and the settler
 address; [`packages/mcp/README.md`](packages/mcp/README.md) has the config block.
 
-Deploying to Arc, opening a market, running the keeper, handling a quiet feed, and every secret
-the live path needs are in [`docs/RUNBOOK.md`](docs/RUNBOOK.md). No secret is committed
+Cutting a deployment and wiring its addresses is in [`deployments/README.md`](deployments/README.md),
+the price relay in [`cre/README.md`](cre/README.md), and the keeper in
+[`agent/src/keeper/`](agent/src/keeper) with its schedule in
+[`.github/workflows/keeper.yml`](.github/workflows/keeper.yml). No secret is committed
 anywhere and no credential has a default: `.env` and `.env.*` are excluded, `.env.example` is
 kept, and a missing key is refused rather than substituted.
 
@@ -892,13 +889,7 @@ hunch-vpm/
 ├── deployments/             arc-testnet.json, the source of truth for addresses
 ├── scripts/                 verify.sh, wire-deployment.mjs, preflight-deploy.sh
 ├── docs/
-│   ├── ARCHITECTURE.md      the three layers, in more depth than this README
-│   ├── RUNBOOK.md           deploy, wire, index, open, resolve, keep
-│   ├── DEMO.md              a four-minute walkthrough in seven beats
-│   ├── SUBMISSION.md        the ETHOnline 2026 write-up and its honest inventory
-│   ├── research/arc.md      every Arc, Graph and oracle fact, with where it was read
-│   ├── integration/         routing the existing Hunch API through the Arc rail
-│   └── feedback/            the AgentKit integration diary
+│   └── ARCHITECTURE.md      the three layers, in more depth than this README
 └── .github/workflows/       ci.yml (the gate), keeper.yml (every 10 minutes)
 ```
 

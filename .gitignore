@@ -47,3 +47,11 @@ scratch/
 # Local tooling state
 .ocean/
 .burn-rate/
+
+# Internal docs. Submission, demo script, runbook, research, sponsor notes and agent context stay
+# local; the public docs are README.md, docs/ARCHITECTURE.md and the package READMEs.
+**/CLAUDE.md
+**/AGENTS.md
+.claude/
+docs/*
+!docs/ARCHITECTURE.md

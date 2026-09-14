@@ -9,8 +9,6 @@
  * pulled rather than pushed, a price feed resolves the market instead of an
  * operator, and `trade` returns calldata for the agent's own wallet to sign
  * instead of taking the position on its behalf.
- *
- * `docs/integration/hunch-arc-rail.md` is the integration guide.
  */
 
 export { createArcRail } from './createArcRail.js';

@@ -380,8 +380,7 @@ This verifier has been tested against proofs produced by its own `buildProof()`,
 secp256k1 signing and real EIP-191 recovery. It has **not** been tested against a proof produced
 by AgentKit's own client, because that requires a registered wallet and the sandbox access to
 exercise one. What is proven here is the verification logic and its failure behaviour; what is
-not proven is byte-level interoperability with AgentKit's client. `docs/feedback/agentkit.md`
-says exactly where that gap is and why it stayed open.
+not proven is byte-level interoperability with AgentKit's client.
 
 ## Tests
 

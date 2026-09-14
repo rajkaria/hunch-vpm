@@ -31,8 +31,7 @@ Two things about that command that are easy to get wrong:
   fails with `contract source info format must be <path>:<contractname>`.
 - `--broadcast` needs a signer. `--account <keystore-account>` reads an encrypted Foundry
   keystore and prompts for the password; `--ledger`, `--trezor` and `--interactive` work too.
-  **Never `--private-key` on a command line** — it lands in your shell history. `docs/RUNBOOK.md`
-  says the same thing in the Secrets table, and this file agrees with it.
+  **Never `--private-key` on a command line** — it lands in your shell history.
 
 `forge script` wraps the JSON in its own output, indented two spaces under a `== Logs ==`
 header, so redirecting stdout straight into the file gives you something that is not JSON. Cut
@@ -95,4 +94,4 @@ pnpm wire:check                                                     # what pnpm 
 ```
 
 The script refuses a file whose `chainId` is wrong or whose addresses hold no code, and prints
-the two environment readers (MCP, agent) it cannot write. `docs/RUNBOOK.md` lists all six.
+the two environment readers (MCP, agent) it cannot write, with the values to set for each.
